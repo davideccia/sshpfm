@@ -53,8 +53,13 @@ build-linux:
 
 dmg: build-mac
 	@rm -f $(BIN)/$(APP)-$(VERSION).dmg
-	hdiutil create -volname "$(APP)" -srcfolder $(APP_DIR) \
+	@rm -rf $(BIN)/dmg-staging
+	@mkdir -p $(BIN)/dmg-staging
+	@cp -R $(APP_DIR) $(BIN)/dmg-staging/
+	@ln -s /Applications $(BIN)/dmg-staging/Applications
+	hdiutil create -volname "$(APP)" -srcfolder $(BIN)/dmg-staging \
 		-ov -format UDZO $(BIN)/$(APP)-$(VERSION).dmg
+	@rm -rf $(BIN)/dmg-staging
 	@echo "built $(BIN)/$(APP)-$(VERSION).dmg"
 
 appicon:
