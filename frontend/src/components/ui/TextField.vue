@@ -48,13 +48,13 @@ const inputFont = computed(() => props.type === 'number' ? 'font-mono' : 'font-s
   <label class="flex flex-col gap-1">
     <span class="text-xs font-semibold text-ink-muted">{{ label }}</span>
     <input
-      class="w-full rounded-lg border bg-raised px-3 py-2 text-sm text-ink
-             transition-colors duration-150 outline-none
+      class="w-full rounded-xl bg-canvas px-3 py-2 text-sm text-ink shadow-neu-in
+             transition-[box-shadow] duration-150 outline-none
              placeholder:text-ink-faint
              focus-visible:outline-2 focus-visible:outline-offset-2
              focus-visible:outline-accent
              disabled:cursor-not-allowed disabled:opacity-40"
-      :class="[inputFont, error ? 'border-danger' : 'border-line-strong']"
+      :class="[inputFont, error ? 'border border-danger' : '']"
       :type="type"
       :min="min"
       :max="max"

@@ -28,7 +28,7 @@ const emit = defineEmits<{
     </p>
 
     <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg
-               border border-line bg-raised p-3">
+               bg-canvas p-3 shadow-neu-in-sm">
       <dt class="text-xs text-ink-muted">Key type</dt>
       <dd class="m-0 font-mono text-xs text-ink">{{ pending.keyType }}</dd>
 

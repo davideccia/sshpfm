@@ -27,7 +27,7 @@ const emit = defineEmits<{
 <template>
   <aside
     class="flex w-[300px] shrink-0 flex-col gap-4 overflow-y-auto
-           border-r border-line bg-surface px-4 py-5"
+           bg-canvas px-4 py-5 shadow-neu-edge-r"
   >
     <div class="flex items-center justify-between">
       <h2 class="text-base font-semibold text-ink">Connections</h2>
@@ -58,16 +58,16 @@ const emit = defineEmits<{
       <li v-for="c in connections" :key="c.id" class="relative">
         <button
           type="button"
-          class="relative w-full cursor-pointer rounded-lg px-3 py-2.5 text-left
-                 transition-colors duration-150 outline-none
-                 hover:bg-raised
+          class="relative w-full cursor-pointer rounded-xl px-3 py-2.5 text-left
+                 transition-[box-shadow] duration-150 outline-none
+                 hover:shadow-neu-out-sm
                  focus-visible:outline-2 focus-visible:-outline-offset-2
                  focus-visible:outline-accent
                  before:absolute before:inset-y-2 before:left-0 before:w-0.5
                  before:rounded-full before:bg-accent before:opacity-0
                  before:transition-opacity before:duration-150"
           :class="[
-            c.id === selectedId ? 'bg-raised before:opacity-100' : '',
+            c.id === selectedId ? 'shadow-neu-in before:opacity-100' : '',
             stateOf(c.id) === 'active' ? 'pr-10' : '',
           ]"
           :aria-current="c.id === selectedId ? 'true' : undefined"

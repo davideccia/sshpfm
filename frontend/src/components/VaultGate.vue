@@ -73,13 +73,13 @@ const message = computed(() => localError.value || error.value)
   <div class="flex min-h-0 flex-1 items-center justify-center p-8">
     <form
       ref="form"
-      class="flex w-[min(380px,100%)] flex-col gap-4"
+      class="flex w-[min(380px,100%)] flex-col gap-4 rounded-2xl bg-canvas p-8 shadow-neu-out"
       @submit.prevent="handleSubmit"
     >
       <div class="flex flex-col items-center gap-2 text-center">
         <span
           class="flex size-11 items-center justify-center rounded-full
-                 border border-line bg-raised text-accent-ink"
+                 bg-canvas text-accent-ink shadow-neu-out-sm"
         >
           <Lock :size="20" weight="fill"/>
         </span>

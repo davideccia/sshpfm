@@ -99,7 +99,7 @@ onMounted(async () => {
     <!-- px-4 matches the sidebar gutter so the app title lines up with
          the "Connections" heading below it. -->
     <header
-      class="flex h-14 shrink-0 items-center border-b border-line bg-surface px-4"
+      class="flex h-14 shrink-0 items-center bg-canvas px-4"
     >
       <!-- The wordmark carries the app name, so the heading keeps its text
            in the alt attribute rather than duplicating it on screen. -->

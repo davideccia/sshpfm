@@ -10,8 +10,14 @@
  * from.
  */
 @theme {
-  /* Surfaces, darkest to lightest. */
-  --color-canvas: #0a0a0a; /* neutral-950 */
+  /*
+   * Surfaces. Neumorphism reads elevation entirely from the dual shadow
+   * around an element that matches its parent's fill, so `canvas` moved up
+   * from near-black (#0a0a0a) to a mid-dark grey: both the black shadow and
+   * the white highlight need real headroom to blend into, and neither does
+   * against a background already close to pure black.
+   */
+  --color-canvas: #1c1c20; /* raised from neutral-950 for shadow headroom */
   --color-surface: #171717; /* neutral-900 */
   --color-raised: #262626; /* neutral-800 */
   --color-hover: #2e2e2e;
@@ -37,6 +43,35 @@
   --color-danger: #f87171; /* red-400 */
   --color-danger-strong: #dc2626; /* red-600 */
   --color-danger-wash: color-mix(in oklab, #dc2626 14%, transparent);
+
+  /*
+   * Dark neumorphism: a low-contrast highlight/shadow pair that fakes a
+   * light source falling on the near-black canvas, replacing the old
+   * border+bg-swap elevation. Kept subtle on purpose — deep offsets read
+   * fine on the light-grey neumorphism reference palette but blow past
+   * readable contrast on a canvas this close to black.
+   */
+  --color-neu-shadow-dark: rgb(0 0 0 / 0.55);
+  --color-neu-shadow-light: rgb(255 255 255 / 0.05);
+  /* Brighter than the bevel highlight above — a dark groove is invisible
+   * against a canvas this close to black, so region dividers need the
+   * light side of the pair, turned up. */
+  --color-neu-edge-light: rgb(255 255 255 / 0.09);
+
+  /* Convex (resting) elevation, two sizes. */
+  --shadow-neu-out: 5px 5px 10px var(--color-neu-shadow-dark), -5px -5px 10px var(--color-neu-shadow-light);
+  --shadow-neu-out-sm: 2px 2px 5px var(--color-neu-shadow-dark), -2px -2px 5px var(--color-neu-shadow-light);
+
+  /* Concave (pressed / recessed) elevation, for inputs and active states. */
+  --shadow-neu-in: inset 3px 3px 6px var(--color-neu-shadow-dark), inset -3px -3px 6px var(--color-neu-shadow-light);
+  --shadow-neu-in-sm: inset 2px 2px 4px var(--color-neu-shadow-dark), inset -2px -2px 4px var(--color-neu-shadow-light);
+
+  /*
+   * One-sided groove, for separating same-colour regions (sidebar from the
+   * detail pane) without a hard border line. Fades in from the edge rather
+   * than surrounding the whole element.
+   */
+  --shadow-neu-edge-r: inset -10px 0 14px -12px var(--color-neu-edge-light);
 
   /* Tunnel state indicators. Semantic, so exempt from the one-accent rule. */
   --color-state-stopped: #737373; /* neutral-500 */

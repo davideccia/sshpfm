@@ -13,9 +13,9 @@ const props = withDefaults(defineProps<{
 // purple-500 is 3.96:1 and misses the 4.5:1 floor, white on purple-600 is
 // 5.4:1. The brand step is then free to act as the hover.
 const variants: Record<NonNullable<typeof props.variant>, string> = {
-  primary: 'bg-accent-strong text-white not-disabled:hover:bg-accent',
-  secondary: 'bg-raised text-ink border-line-strong not-disabled:hover:bg-hover',
-  danger: 'bg-danger-strong text-white not-disabled:hover:bg-danger',
+  primary: 'bg-accent-strong text-white shadow-neu-out not-disabled:hover:bg-accent',
+  secondary: 'bg-canvas text-ink shadow-neu-out not-disabled:hover:bg-hover',
+  danger: 'bg-danger-strong text-white shadow-neu-out not-disabled:hover:bg-danger',
 }
 
 const variantClass = computed(() => variants[props.variant])
@@ -25,11 +25,11 @@ const variantClass = computed(() => variants[props.variant])
   <button
     :type="type"
     class="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2
-           whitespace-nowrap rounded-lg border border-transparent px-4 py-2
-           text-sm font-semibold transition-colors duration-150
+           whitespace-nowrap rounded-xl px-4 py-2
+           text-sm font-semibold transition-[box-shadow,background-color] duration-150
            outline-none focus-visible:outline-2 focus-visible:outline-offset-2
            focus-visible:outline-accent
-           not-disabled:active:scale-[0.98]
+           not-disabled:active:shadow-neu-in not-disabled:active:scale-[0.99]
            disabled:cursor-not-allowed disabled:opacity-40"
     :class="variantClass"
   >

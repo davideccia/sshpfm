@@ -90,7 +90,7 @@ onBeforeUnmount(() => {
     >
       <div
         ref="panel"
-        class="rounded-xl border border-line bg-surface p-6 text-left shadow-2xl
+        class="rounded-2xl bg-canvas p-6 text-left shadow-neu-out
                outline-none"
         :class="widthClass"
         role="alertdialog"

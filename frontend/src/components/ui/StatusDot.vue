@@ -26,7 +26,7 @@ const style = computed(() => styles[props.state] ?? 'bg-state-stopped')
 
 <template>
   <span
-    class="inline-block size-2 shrink-0 rounded-full"
+    class="inline-block size-2 shrink-0 rounded-full shadow-neu-out-sm"
     :class="style"
     role="img"
     :aria-label="label"

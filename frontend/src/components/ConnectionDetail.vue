@@ -144,7 +144,7 @@ function dismissHostKey() {
         <span class="font-semibold text-ink">{{ stateLabel }}</span>
         <code
           v-if="state === 'active'"
-          class="rounded-lg bg-raised px-2 py-1 font-mono text-xs text-ink-muted"
+          class="rounded-lg bg-canvas px-2 py-1 font-mono text-xs text-ink-muted shadow-neu-in-sm"
         >
           localhost:{{ selected.localPort }} → {{ selected.host }}:{{ selected.remoteBindPort }}
         </code>
@@ -163,7 +163,7 @@ function dismissHostKey() {
       <!-- Six fields in two columns. Host and Auth span a row each: they
            hold the longest values, and the remaining four fill two full
            rows between them. -->
-      <dl class="m-0 grid grid-cols-2 gap-4 rounded-lg border border-line bg-surface p-4">
+      <dl class="m-0 grid grid-cols-2 gap-4 rounded-2xl bg-canvas p-4 shadow-neu-out">
         <div class="col-span-2">
           <dt class="mb-0.5 text-xs text-ink-muted">Host</dt>
           <dd class="m-0 truncate font-mono text-sm text-ink">{{ selected.host }}</dd>
