@@ -3,6 +3,8 @@ import {
   PhPlus as Plus,
   PhWarningCircle as WarningCircle,
   PhArrowSquareOut as ArrowSquareOut,
+  PhPower as Power,
+  PhCircleNotch as CircleNotch,
 } from '@phosphor-icons/vue'
 import Button from './ui/Button.vue'
 import StatusDot from './ui/StatusDot.vue'
@@ -16,19 +18,37 @@ defineProps<{
   error: string
 }>()
 
-const {stateOf, openInBrowser} = useTunnels()
+const {stateOf, start, stop, openInBrowser} = useTunnels()
 
 const emit = defineEmits<{
   select: [id: number]
   create: []
 }>()
+
+function toggleTunnel(id: number) {
+  stateOf(id) === 'active' ? stop(id) : start(id)
+}
 </script>
 
 <template>
   <aside
     class="flex w-[300px] shrink-0 flex-col gap-4 overflow-y-auto
-           bg-canvas px-4 py-5 shadow-neu-edge-r"
+           bg-canvas px-4 py-5 shadow-neu-panel-edge"
   >
+    <!-- Set in the dot-matrix "Dited" face so it reads as the wordmark
+         without shipping it as an image. Living here rather than in a
+         separate app header keeps the sidebar from reading as a region cut
+         off from its own title. Sized to the sidebar's own width, in the
+         accent colour so it reads as the brand mark rather than a label.
+         The convex shadow stands in for an outline — a real border would
+         be the one flat element left in an otherwise neumorphic sidebar. -->
+    <div class="rounded-2xl bg-canvas px-4 py-3 shadow-neu-out">
+      <span
+        class="block whitespace-nowrap text-center font-display text-6xl
+               leading-none tracking-tight text-accent-ink select-none"
+      >sshpfm</span>
+    </div>
+
     <div class="flex items-center justify-between">
       <h2 class="text-base font-semibold text-ink">Connections</h2>
       <Button variant="primary" @click="emit('create')">
@@ -62,13 +82,10 @@ const emit = defineEmits<{
                  transition-[box-shadow] duration-150 outline-none
                  hover:shadow-neu-out-sm
                  focus-visible:outline-2 focus-visible:-outline-offset-2
-                 focus-visible:outline-accent
-                 before:absolute before:inset-y-2 before:left-0 before:w-0.5
-                 before:rounded-full before:bg-accent before:opacity-0
-                 before:transition-opacity before:duration-150"
+                 focus-visible:outline-accent"
           :class="[
-            c.id === selectedId ? 'shadow-neu-in before:opacity-100' : '',
-            stateOf(c.id) === 'active' ? 'pr-10' : '',
+            c.id === selectedId ? 'shadow-neu-in' : '',
+            stateOf(c.id) === 'active' ? 'pr-16' : 'pr-10',
           ]"
           :aria-current="c.id === selectedId ? 'true' : undefined"
           @click="emit('select', c.id)"
@@ -82,24 +99,53 @@ const emit = defineEmits<{
           </span>
         </button>
 
-        <!-- Only offered while the tunnel is up: otherwise the browser would
-             just land on a refused connection. Absolutely positioned rather
-             than nested, so it is not a button inside a button. -->
-        <button
-          v-if="stateOf(c.id) === 'active'"
-          type="button"
-          class="absolute top-2.5 right-2 inline-flex cursor-pointer items-center
-                 justify-center rounded-lg p-1.5 text-ink-muted
-                 transition-colors duration-150 outline-none
-                 hover:bg-hover hover:text-accent-ink
-                 focus-visible:outline-2 focus-visible:outline-offset-1
-                 focus-visible:outline-accent"
-          :title="`Open http://localhost:${c.localPort} in your browser`"
-          :aria-label="`Open ${c.label} in your browser`"
-          @click="openInBrowser(c.id)"
-        >
-          <ArrowSquareOut :size="15"/>
-        </button>
+        <!-- Absolutely positioned rather than nested, so these are not
+             buttons inside a button. -->
+        <div class="absolute top-2.5 right-2 flex items-center gap-1">
+          <!-- Only offered while the tunnel is up: otherwise the browser
+               would just land on a refused connection. -->
+          <button
+            v-if="stateOf(c.id) === 'active'"
+            type="button"
+            class="inline-flex cursor-pointer items-center justify-center
+                   rounded-lg p-1.5 text-ink-muted
+                   transition-colors duration-150 outline-none
+                   hover:bg-hover hover:text-accent-ink
+                   focus-visible:outline-2 focus-visible:outline-offset-1
+                   focus-visible:outline-accent"
+            :title="`Open http://localhost:${c.localPort} in your browser`"
+            :aria-label="`Open ${c.label} in your browser`"
+            @click.stop="openInBrowser(c.id)"
+          >
+            <ArrowSquareOut :size="15"/>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center justify-center
+                   rounded-lg p-1.5 transition-colors duration-150 outline-none
+                   hover:bg-hover
+                   focus-visible:outline-2 focus-visible:outline-offset-1
+                   focus-visible:outline-accent
+                   disabled:cursor-not-allowed"
+            :class="stateOf(c.id) === 'active'
+              ? 'text-state-active hover:text-state-active'
+              : stateOf(c.id) === 'error'
+                ? 'text-state-error hover:text-state-error'
+                : 'text-ink-muted hover:text-accent-ink'"
+            :disabled="stateOf(c.id) === 'connecting'"
+            :title="stateOf(c.id) === 'active' ? `Stop ${c.label}` : `Start ${c.label}`"
+            :aria-label="stateOf(c.id) === 'active' ? `Stop ${c.label}` : `Start ${c.label}`"
+            @click.stop="toggleTunnel(c.id)"
+          >
+            <CircleNotch
+              v-if="stateOf(c.id) === 'connecting'"
+              :size="15"
+              class="animate-spin motion-reduce:animate-none"
+            />
+            <Power v-else :size="15" :weight="stateOf(c.id) === 'active' ? 'fill' : 'regular'"/>
+          </button>
+        </div>
       </li>
     </ul>
   </aside>

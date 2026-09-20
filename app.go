@@ -19,6 +19,15 @@ import (
 // statusEvent is the frontend event carrying tunnel state changes.
 const statusEvent = "tunnel:status"
 
+// logEvent is the frontend event carrying tunnel activity log lines.
+const logEvent = "tunnel:log"
+
+// TunnelLogEvent is the payload emitted on logEvent.
+type TunnelLogEvent struct {
+	ID  int64          `json:"id"`
+	Log tunnel.LogLine `json:"log"`
+}
+
 // App struct
 type App struct {
 	ctx     context.Context
@@ -67,9 +76,14 @@ func (a *App) init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	a.tunnels = tunnel.NewManager(knownHosts, func(s tunnel.Status) {
-		wailsruntime.EventsEmit(ctx, statusEvent, s)
-	})
+	a.tunnels = tunnel.NewManager(knownHosts,
+		func(s tunnel.Status) {
+			wailsruntime.EventsEmit(ctx, statusEvent, s)
+		},
+		func(id int64, l tunnel.LogLine) {
+			wailsruntime.EventsEmit(ctx, logEvent, TunnelLogEvent{ID: id, Log: l})
+		},
+	)
 
 	if ag, err := sshauth.FindAgent(); err != nil {
 		// Not fatal: the user may start the agent later. It only bites
@@ -202,6 +216,18 @@ func (a *App) TunnelStatuses() ([]tunnel.Status, error) {
 		return nil, err
 	}
 	return a.tunnels.Statuses(), nil
+}
+
+// ConnectionLogs returns the in-memory activity log for one connection's
+// tunnel, oldest first. Empty (not nil) when the tunnel has never run.
+func (a *App) ConnectionLogs(id int64) ([]tunnel.LogLine, error) {
+	if err := a.unlocked(); err != nil {
+		return nil, err
+	}
+	if logs := a.tunnels.Logs(id); logs != nil {
+		return logs, nil
+	}
+	return []tunnel.LogLine{}, nil
 }
 
 // OpenInBrowser opens the local end of a running tunnel in the user's

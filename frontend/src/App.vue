@@ -9,7 +9,6 @@ import {useTunnels} from './composables/useTunnels'
 import {useVault} from './composables/useVault'
 import {StartupError} from '../wailsjs/go/main/App'
 import type {store} from '../wailsjs/go/models'
-import logoText from './assets/images/logo-text.png'
 
 const {connections, isLoading, error, refresh, create, update, remove} = useConnections()
 const {init: initTunnels, error: tunnelError} = useTunnels()
@@ -96,16 +95,15 @@ onMounted(async () => {
 
 <template>
   <div class="flex h-screen flex-col bg-canvas">
-    <!-- px-4 matches the sidebar gutter so the app title lines up with
-         the "Connections" heading below it. -->
+    <!-- Once the sidebar is on screen it carries the wordmark itself, right
+         above "Connections", so the two don't read as separate bands. This
+         header only covers the states before that: startup failure and the
+         vault gate. -->
     <header
+      v-if="vaultStatus !== 'unlocked'"
       class="flex h-14 shrink-0 items-center bg-canvas px-4"
     >
-      <!-- The wordmark carries the app name, so the heading keeps its text
-           in the alt attribute rather than duplicating it on screen. -->
-      <h1 class="m-0">
-        <img :src="logoText" alt="sshpfm" class="h-4 w-auto select-none"/>
-      </h1>
+      <h1 class="m-0 font-display text-lg tracking-wide text-ink select-none">sshpfm</h1>
     </header>
 
     <p

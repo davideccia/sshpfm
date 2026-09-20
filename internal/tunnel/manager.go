@@ -24,6 +24,7 @@ var ErrAlreadyRunning = errors.New("tunnel is already running")
 type Manager struct {
 	knownHosts string
 	emit       func(Status)
+	onLog      func(int64, LogLine)
 	connect    connector
 
 	mu      sync.Mutex
@@ -31,15 +32,19 @@ type Manager struct {
 }
 
 // NewManager returns a Manager verifying hosts against the known_hosts
-// file at knownHosts. emit is called on every status change and may be
-// nil.
-func NewManager(knownHosts string, emit func(Status)) *Manager {
+// file at knownHosts. emit is called on every status change, onLog on
+// every log line; both may be nil.
+func NewManager(knownHosts string, emit func(Status), onLog func(int64, LogLine)) *Manager {
 	if emit == nil {
 		emit = func(Status) {}
+	}
+	if onLog == nil {
+		onLog = func(int64, LogLine) {}
 	}
 	return &Manager{
 		knownHosts: knownHosts,
 		emit:       emit,
+		onLog:      onLog,
 		connect:    defaultConnector,
 		tunnels:    map[int64]*tunnel{},
 	}
@@ -72,7 +77,7 @@ func (m *Manager) Start(ctx context.Context, c store.Connection) error {
 	}
 
 	m.mu.Lock()
-	t := newTunnel(c, m.knownHosts, m.connect, m.emit)
+	t := newTunnel(c, m.knownHosts, m.connect, m.emit, m.onLog)
 	m.tunnels[c.ID] = t
 	m.mu.Unlock()
 
@@ -138,6 +143,19 @@ func (m *Manager) IsRunning(id int64) bool {
 	default:
 		return false
 	}
+}
+
+// Logs returns the in-memory log history for one forward, or nil when the
+// forward is unknown.
+func (m *Manager) Logs(id int64) []LogLine {
+	m.mu.Lock()
+	t, ok := m.tunnels[id]
+	m.mu.Unlock()
+
+	if !ok {
+		return nil
+	}
+	return t.logSnapshot()
 }
 
 // Statuses returns a snapshot of every tracked forward, ordered by id.

@@ -91,7 +91,7 @@ func startAuthSSHServer(t *testing.T, mode authMode, want string) *sshServer {
 // so the credential assembly under test is production code.
 func newPasswordManager(t *testing.T, srv *sshServer) *Manager {
 	t.Helper()
-	m := NewManager("", nil)
+	m := NewManager("", nil, nil)
 	m.connect = func(_ context.Context, c store.Connection, _ string) (*ssh.Client, io.Closer, error) {
 		password := ""
 		if c.Password != nil {

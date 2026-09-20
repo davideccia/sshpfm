@@ -26,7 +26,7 @@ func newTestApp(t *testing.T) *App {
 	return &App{
 		ctx:     context.Background(),
 		store:   s,
-		tunnels: tunnel.NewManager(filepath.Join(t.TempDir(), "known_hosts"), nil),
+		tunnels: tunnel.NewManager(filepath.Join(t.TempDir(), "known_hosts"), nil, nil),
 	}
 }
 

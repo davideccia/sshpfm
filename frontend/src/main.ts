@@ -1,5 +1,4 @@
-import '@fontsource-variable/geist'
-import '@fontsource-variable/geist-mono'
+import '@fontsource-variable/lilex'
 import './style.css'
 
 import {createApp} from 'vue'

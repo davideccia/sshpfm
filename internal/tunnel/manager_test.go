@@ -165,7 +165,7 @@ func (s *sshServer) serve(raw net.Conn, cfg *ssh.ServerConfig) {
 // agent or the user's known_hosts; those are covered by sshauth's tests.
 func newTestManager(t *testing.T, srv *sshServer, emit func(Status)) *Manager {
 	t.Helper()
-	m := NewManager(filepath.Join(t.TempDir(), "known_hosts"), emit)
+	m := NewManager(filepath.Join(t.TempDir(), "known_hosts"), emit, nil)
 	m.connect = func(_ context.Context, _ store.Connection, _ string) (*ssh.Client, io.Closer, error) {
 		client, err := ssh.Dial("tcp", srv.addr, &ssh.ClientConfig{
 			User:            "test",
@@ -506,7 +506,7 @@ func TestStopAllTearsDownEveryTunnel(t *testing.T) {
 // so the trust-on-first-use flow is exercised exactly as in production.
 func newTOFUManager(t *testing.T, srv *sshServer, knownHosts string) *Manager {
 	t.Helper()
-	m := NewManager(knownHosts, nil)
+	m := NewManager(knownHosts, nil, nil)
 	m.connect = func(_ context.Context, c store.Connection, kh string) (*ssh.Client, io.Closer, error) {
 		hostKey, err := sshauth.HostKeyCallback(kh)
 		if err != nil {

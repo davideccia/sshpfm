@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {ref, computed} from 'vue'
+import {ref, computed, watch} from 'vue'
 import {
   PhPlugs as Plugs,
   PhPencilSimple as PencilSimple,
@@ -9,6 +9,7 @@ import {
   PhWarningCircle as WarningCircle,
 } from '@phosphor-icons/vue'
 import ConnectionForm from './ConnectionForm.vue'
+import ConnectionLogPanel from './ConnectionLogPanel.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HostKeyDialog from './HostKeyDialog.vue'
 import Button from './ui/Button.vue'
@@ -35,6 +36,13 @@ const emit = defineEmits<{
 const {statusOf, stateOf, start, stop, trustHostKey} = useTunnels()
 
 const confirmingDelete = ref(false)
+const activeTab = ref<'overview' | 'log'>('overview')
+watch(
+  () => props.selected?.id,
+  () => {
+    activeTab.value = 'overview'
+  },
+)
 
 const status = computed(() => (props.selected ? statusOf(props.selected.id) : null))
 const state = computed(() => (props.selected ? stateOf(props.selected.id) : 'stopped'))
@@ -160,10 +168,22 @@ function dismissHostKey() {
         {{ status.error }}
       </p>
 
+      <div class="flex gap-2">
+        <Button :variant="activeTab === 'overview' ? 'primary' : 'secondary'" @click="activeTab = 'overview'">
+          Overview
+        </Button>
+        <Button :variant="activeTab === 'log' ? 'primary' : 'secondary'" @click="activeTab = 'log'">
+          Log
+        </Button>
+      </div>
+
       <!-- Six fields in two columns. Host and Auth span a row each: they
            hold the longest values, and the remaining four fill two full
            rows between them. -->
-      <dl class="m-0 grid grid-cols-2 gap-4 rounded-2xl bg-canvas p-4 shadow-neu-out">
+      <dl
+        v-if="activeTab === 'overview'"
+        class="m-0 grid grid-cols-2 gap-4 rounded-2xl bg-canvas p-4 shadow-neu-out"
+      >
         <div class="col-span-2">
           <dt class="mb-0.5 text-xs text-ink-muted">Host</dt>
           <dd class="m-0 truncate font-mono text-sm text-ink">{{ selected.host }}</dd>
@@ -193,6 +213,8 @@ function dismissHostKey() {
           </dd>
         </div>
       </dl>
+
+      <ConnectionLogPanel v-else :connection-id="selected.id" :is-up="isUp"/>
     </div>
 
     <div v-else class="flex h-full flex-col items-center justify-center gap-3 text-ink-faint">

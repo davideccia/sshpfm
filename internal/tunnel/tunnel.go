@@ -58,6 +58,26 @@ type Status struct {
 	PendingHostKey *PendingHostKey `json:"pendingHostKey"`
 }
 
+// LogLevel classifies a LogLine for display; it drives color only.
+type LogLevel string
+
+const (
+	LogInfo  LogLevel = "info"
+	LogWarn  LogLevel = "warn"
+	LogError LogLevel = "error"
+)
+
+// LogLine is one entry in a forward's in-memory activity log.
+type LogLine struct {
+	Time    string   `json:"time"` // RFC3339
+	Level   LogLevel `json:"level"`
+	Message string   `json:"message"`
+}
+
+// maxLogLines bounds each forward's in-memory log so a long-lived tunnel
+// cannot grow it without limit.
+const maxLogLines = 300
+
 // connector establishes the SSH client for a forward, including resolving
 // the agent and the host key policy. The whole step is behind one seam so
 // tests can substitute an in-process server without touching the real
@@ -171,6 +191,9 @@ type tunnel struct {
 	// onChange is called after every state transition, never while
 	// holding mu.
 	onChange func(Status)
+	// onLog is called after every log line is appended, never while
+	// holding mu. May be nil.
+	onLog func(id int64, l LogLine)
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -184,16 +207,47 @@ type tunnel struct {
 	listener   net.Listener
 	client     *ssh.Client
 	agentConn  io.Closer
+	logs       []LogLine
 }
 
-func newTunnel(c store.Connection, knownHosts string, conn connector, onChange func(Status)) *tunnel {
+func newTunnel(c store.Connection, knownHosts string, conn connector, onChange func(Status), onLog func(int64, LogLine)) *tunnel {
 	return &tunnel{
 		conn:       c,
 		knownHosts: knownHosts,
 		connect:    conn,
 		onChange:   onChange,
+		onLog:      onLog,
 		state:      StateStopped,
 	}
+}
+
+// log appends a line to the forward's log and notifies onLog, never while
+// holding mu.
+func (t *tunnel) log(level LogLevel, format string, args ...any) {
+	line := LogLine{
+		Time:    time.Now().Format(time.RFC3339),
+		Level:   level,
+		Message: fmt.Sprintf(format, args...),
+	}
+	t.mu.Lock()
+	t.logs = append(t.logs, line)
+	if len(t.logs) > maxLogLines {
+		t.logs = t.logs[len(t.logs)-maxLogLines:]
+	}
+	t.mu.Unlock()
+
+	if t.onLog != nil {
+		t.onLog(t.conn.ID, line)
+	}
+}
+
+// logSnapshot returns a copy of the forward's log history.
+func (t *tunnel) logSnapshot() []LogLine {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make([]LogLine, len(t.logs))
+	copy(out, t.logs)
+	return out
 }
 
 // start brings the forward up. It returns once the local port is bound
@@ -204,6 +258,7 @@ func (t *tunnel) start(ctx context.Context) error {
 	t.cancel = cancel
 
 	t.setState(StateConnecting, nil)
+	t.log(LogInfo, "connecting to %s@%s:%d", t.conn.Username, t.conn.Host, t.conn.SSHPort)
 
 	// Bind locally first: a port conflict is the most common failure and
 	// must surface before we bother the remote host or the agent.
@@ -211,6 +266,7 @@ func (t *tunnel) start(ctx context.Context) error {
 	ln, err := net.Listen("tcp", localAddr)
 	if err != nil {
 		cancel()
+		t.log(LogError, "bind failed: %v", err)
 		return t.fail(fmt.Errorf("bind %s: %w", localAddr, err))
 	}
 
@@ -218,8 +274,10 @@ func (t *tunnel) start(ctx context.Context) error {
 	if err != nil {
 		ln.Close()
 		cancel()
+		t.log(LogError, "ssh connect failed: %v", err)
 		return t.fail(err)
 	}
+	t.log(LogInfo, "ssh handshake complete")
 
 	t.mu.Lock()
 	t.listener = ln
@@ -238,6 +296,7 @@ func (t *tunnel) start(ctx context.Context) error {
 	}()
 
 	t.setState(StateActive, nil)
+	t.log(LogInfo, "tunnel active")
 	return nil
 }
 
@@ -252,6 +311,7 @@ func (t *tunnel) acceptLoop(ctx context.Context, ln net.Listener, client *ssh.Cl
 			if errors.Is(err, net.ErrClosed) || ctx.Err() != nil {
 				return
 			}
+			t.log(LogError, "accept error: %v", err)
 			t.setState(StateError, fmt.Errorf("accept on local port %d: %w", t.conn.LocalPort, err))
 			return
 		}
@@ -261,6 +321,7 @@ func (t *tunnel) acceptLoop(ctx context.Context, ln net.Listener, client *ssh.Cl
 			local.Close()
 			// One refused connection does not mean the tunnel is
 			// down, so report it and keep listening.
+			t.log(LogWarn, "remote dial %s failed: %v", remoteAddr, err)
 			t.report(fmt.Errorf("dial %s over the tunnel: %w", remoteAddr, err))
 			continue
 		}
@@ -276,8 +337,12 @@ func (t *tunnel) acceptLoop(ctx context.Context, ln net.Listener, client *ssh.Cl
 // pipe copies bytes both ways until either side finishes, then closes
 // both. Closing both is what unblocks the opposite copy.
 func (t *tunnel) pipe(local, remote net.Conn) {
+	t.log(LogInfo, "stream opened")
 	t.addStream(1)
-	defer t.addStream(-1)
+	defer func() {
+		t.addStream(-1)
+		t.log(LogInfo, "stream closed")
+	}()
 
 	var once sync.Once
 	closeBoth := func() {
@@ -315,6 +380,7 @@ func (t *tunnel) keepalive(ctx context.Context, client *ssh.Client) {
 				if ctx.Err() != nil {
 					return
 				}
+				t.log(LogWarn, "keepalive failed: %v", err)
 				t.setState(StateError, fmt.Errorf("ssh connection lost: %w", err))
 				t.closeResources()
 				return
@@ -331,6 +397,7 @@ func (t *tunnel) stop() {
 	t.closeResources()
 	t.wg.Wait()
 	t.setState(StateStopped, nil)
+	t.log(LogInfo, "tunnel stopped")
 }
 
 // closeResources releases the listener, SSH client and agent socket.

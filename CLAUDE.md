@@ -62,12 +62,21 @@ Frontend (`frontend/src`): `App.vue` holds the sidebar/detail layout and view mo
 
 Tailwind CSS v4 (via `@tailwindcss/vite`), utility classes in the template. Do not add component `<style>` blocks, CSS modules, or a UI library — there are none in the codebase, and a second styling system would fork the palette.
 
-The design tokens live in one `@theme` block in `frontend/src/style.css` and generate the utilities the components use: surfaces (`bg-canvas`, `bg-surface`, `bg-raised`, `bg-hover`), borders (`border-line`, `border-line-strong`), text (`text-ink`, `text-ink-muted`, `text-ink-faint`), the purple accent, `danger`, and the per-state tunnel colours. Reach for a token before a raw Tailwind palette class (`bg-neutral-900`) or an arbitrary value — the exceptions are one-off geometry like `w-[300px]`.
+The design tokens live in one `@theme` block in `frontend/src/style.css` and generate the utilities the components use: the `bg-canvas`/`bg-hover` surfaces, text (`text-ink`, `text-ink-muted`, `text-ink-faint`), the purple accent, `danger`, and the per-state tunnel colours. Reach for a token before a raw Tailwind palette class (`bg-neutral-900`) or an arbitrary value — the exceptions are one-off geometry like `w-[300px]`.
 
-Three rules the tokens encode, all load-bearing:
+**The UI is neumorphic (dark neumorphism).** Elevation comes entirely from a dual box-shadow — a dark shadow and a light highlight, faking a light source — on an element filled with the *same* background as its parent, not from the old border+lighter-surface-swap approach. That is why `border-line`/`border-line-strong`/`bg-surface`/`bg-raised` no longer exist as tokens: a bordered, differently-shaded panel reads as flat, not embossed. Live shadow tokens, all in `style.css`:
 
-- **Dark only.** `style.css` declares `color-scheme: dark` unconditionally, there is no light palette and no `dark:` variant anywhere. That is also why `main.go` pins the native chrome to dark.
+- `shadow-neu-out` / `shadow-neu-out-sm` — convex, resting state (buttons, dialogs, cards).
+- `shadow-neu-in` / `shadow-neu-in-sm` — concave, for recessed elements (inputs, pressed buttons, the selected sidebar row, inline data chips).
+- `shadow-neu-panel-edge` — a one-sided groove (top/bottom/right) that separates a same-colour region, such as the sidebar, from its neighbours without a hard line.
+
+`--color-canvas` sits at `#1c1c20` rather than near-black on purpose: both the black shadow and the white highlight need visible headroom to blend into, which a background already close to pure black does not give them. A border survives only as a semantic signal, never a structural one — e.g. `border-danger` on a validation or alert message.
+
+Four rules the tokens encode, all load-bearing:
+
+- **Dark only.** `style.css` declares `color-scheme: dark` unconditionally, there is no light palette and no `dark:` variant anywhere. That is also why `main.go` pins the native chrome to dark, and why the neumorphic shadow pair uses tinted-black/tinted-white rather than the light-grey base a typical neumorphism reference palette assumes.
 - **Accent contrast.** `accent` is the brand hue and never sits behind text (3.96:1). Filled buttons use `accent-strong`, purple text uses `accent-ink`. `danger` splits the same way.
 - **One accent.** Purple only, except the semantic `state-*` colours for tunnel status.
+- **Shape consistency.** Panels/dialogs use `rounded-2xl`, buttons/inputs use `rounded-xl`, inline data chips use `rounded-lg` — pick the radius by element category, not per component.
 
-Icons come from `@phosphor-icons/vue`. Fonts are Geist and Geist Mono, self-hosted through `@fontsource-variable` — the app must render with no network.
+Icons come from `@phosphor-icons/vue`. The font is Lilex (a monospace face, used for both `--font-sans` and `--font-mono` — the app has one typeface end to end), self-hosted through `@fontsource-variable/lilex` — the app must render with no network.
