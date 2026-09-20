@@ -71,79 +71,90 @@ const message = computed(() => localError.value || error.value)
 
 <template>
   <div class="flex min-h-0 flex-1 items-center justify-center p-8">
-    <form
-      ref="form"
-      class="flex w-[min(380px,100%)] flex-col gap-4 rounded-2xl bg-canvas p-8 shadow-neu-out"
-      @submit.prevent="handleSubmit"
-    >
-      <div class="flex flex-col items-center gap-2 text-center">
+    <div class="flex w-[min(380px,100%)] flex-col gap-4">
+      <!-- Same card treatment as the sidebar's wordmark, so the gate reads
+           as the same brand mark rather than a different logo. -->
+      <div class="rounded-2xl bg-canvas px-4 py-3 shadow-neu-out">
         <span
-          class="flex size-11 items-center justify-center rounded-full
-                 bg-canvas text-accent-ink shadow-neu-out-sm"
-        >
-          <Lock :size="20" weight="fill"/>
-        </span>
-        <h2 class="m-0 text-xl font-semibold text-ink">
-          {{ isSetup ? 'Set a master password' : 'Unlock sshpfm' }}
-        </h2>
-        <p class="m-0 text-sm leading-relaxed text-ink-muted">
-          <template v-if="isSetup">
-            It encrypts the SSH passwords you save. It is never stored, so it
-            cannot be recovered — lose it and those passwords are gone.
-          </template>
-          <template v-else>
-            Enter your master password to decrypt your saved SSH passwords.
-          </template>
-        </p>
+          class="block whitespace-nowrap text-center font-display text-6xl
+                 leading-none tracking-tight text-accent-ink select-none"
+        >sshpfm</span>
       </div>
 
-      <TextField
-        label="Master password"
-        type="password"
-        v-model="password"
-        required
-        :error="isSetup ? localError : ''"
-      />
-      <TextField
-        v-if="isSetup"
-        label="Confirm master password"
-        type="password"
-        v-model="confirmation"
-        required
-      />
-
-      <p
-        v-if="!isSetup && message"
-        role="alert"
-        class="m-0 flex items-start gap-2 text-sm text-danger"
+      <form
+        ref="form"
+        class="flex flex-col gap-4 rounded-2xl bg-canvas p-8 shadow-neu-out"
+        @submit.prevent="handleSubmit"
       >
-        <WarningCircle :size="16" weight="fill" class="mt-px shrink-0"/>
-        {{ message }}
-      </p>
-      <p v-else-if="isSetup && error" role="alert" class="m-0 text-sm text-danger">
-        {{ error }}
-      </p>
+        <div class="flex flex-col items-center gap-2 text-center">
+          <span
+            class="flex size-11 items-center justify-center rounded-full
+                   bg-canvas text-accent-ink shadow-neu-out-sm"
+          >
+            <Lock :size="20" weight="fill"/>
+          </span>
+          <h2 class="m-0 text-xl font-semibold text-ink">
+            {{ isSetup ? 'Set a master password' : 'Unlock sshpfm' }}
+          </h2>
+          <p class="m-0 text-sm leading-relaxed text-ink-muted">
+            <template v-if="isSetup">
+              It encrypts the SSH passwords you save. It is never stored, so it
+              cannot be recovered — lose it and those passwords are gone.
+            </template>
+            <template v-else>
+              Enter your master password to decrypt your saved SSH passwords.
+            </template>
+          </p>
+        </div>
 
-      <!-- Deriving the key takes about 100ms of deliberate work; disabling
-           the button stops a second attempt queueing behind the first. -->
-      <Button variant="primary" type="submit" :disabled="isBusy">
-        {{ isBusy ? 'Working…' : (isSetup ? 'Set password' : 'Unlock') }}
-      </Button>
+        <TextField
+          label="Master password"
+          type="password"
+          v-model="password"
+          required
+          :error="isSetup ? localError : ''"
+        />
+        <TextField
+          v-if="isSetup"
+          label="Confirm master password"
+          type="password"
+          v-model="confirmation"
+          required
+        />
 
-      <!-- Only offered on the unlock screen: during setup there is
-           nothing yet to forget. -->
-      <button
-        v-if="!isSetup"
-        type="button"
-        class="mt-1 self-center text-xs text-ink-faint underline-offset-2
-               transition-colors duration-150 hover:text-ink-muted hover:underline
-               focus-visible:outline-2 focus-visible:outline-offset-2
-               focus-visible:outline-accent"
-        @click="confirmingReset = true"
-      >
-        Forgot your master password?
-      </button>
-    </form>
+        <p
+          v-if="!isSetup && message"
+          role="alert"
+          class="m-0 flex items-start gap-2 text-sm text-danger"
+        >
+          <WarningCircle :size="16" weight="fill" class="mt-px shrink-0"/>
+          {{ message }}
+        </p>
+        <p v-else-if="isSetup && error" role="alert" class="m-0 text-sm text-danger">
+          {{ error }}
+        </p>
+
+        <!-- Deriving the key takes about 100ms of deliberate work; disabling
+             the button stops a second attempt queueing behind the first. -->
+        <Button variant="primary" type="submit" :disabled="isBusy">
+          {{ isBusy ? 'Working…' : (isSetup ? 'Set password' : 'Unlock') }}
+        </Button>
+
+        <!-- Only offered on the unlock screen: during setup there is
+             nothing yet to forget. -->
+        <button
+          v-if="!isSetup"
+          type="button"
+          class="mt-1 self-center text-xs text-ink-faint underline-offset-2
+                 transition-colors duration-150 hover:text-ink-muted hover:underline
+                 focus-visible:outline-2 focus-visible:outline-offset-2
+                 focus-visible:outline-accent"
+          @click="confirmingReset = true"
+        >
+          Forgot your master password?
+        </button>
+      </form>
+    </div>
 
     <ConfirmDialog
       v-if="confirmingReset"

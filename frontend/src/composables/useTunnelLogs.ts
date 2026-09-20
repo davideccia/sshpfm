@@ -13,17 +13,27 @@ interface TunnelLogEvent {
 
 const MAX_LINES = 300
 
+// Wraps each line with a stable id so `v-for` can key on it instead of
+// array position: lines are trimmed from the front once MAX_LINES is
+// exceeded, which would otherwise shift every remaining index.
+export interface LogEntry {
+  seq: number
+  line: tunnel.LogLine
+}
+
 const state = reactive({
   // Keyed by connection id. A connection with no entry has never been
   // fetched or streamed to yet.
-  logs: {} as Record<number, tunnel.LogLine[]>,
+  logs: {} as Record<number, LogEntry[]>,
 })
+
+let nextSeq = 0
 
 let subscribed = false
 
 function push(id: number, line: tunnel.LogLine) {
   const lines = state.logs[id] ?? (state.logs[id] = [])
-  lines.push(line)
+  lines.push({seq: nextSeq++, line})
   if (lines.length > MAX_LINES) lines.splice(0, lines.length - MAX_LINES)
 }
 
@@ -42,14 +52,14 @@ function subscribeOnce() {
  */
 async function load(id: number): Promise<void> {
   try {
-    state.logs[id] = await ConnectionLogs(id)
+    state.logs[id] = (await ConnectionLogs(id)).map(line => ({seq: nextSeq++, line}))
   } catch {
     // Leave whatever was already streamed in; a failed backfill should not
     // blank out lines the panel already has.
   }
 }
 
-function logsOf(id: number | null): tunnel.LogLine[] {
+function logsOf(id: number | null): LogEntry[] {
   if (id === null) return []
   return state.logs[id] ?? []
 }

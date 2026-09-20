@@ -101,11 +101,11 @@ onMounted(async () => {
 <template>
   <div class="flex h-screen flex-col bg-canvas">
     <!-- Once the sidebar is on screen it carries the wordmark itself, right
-         above "Connections", so the two don't read as separate bands. This
-         header only covers the states before that: startup failure and the
-         vault gate. -->
+         above "Connections", so the two don't read as separate bands. The
+         vault gate carries its own wordmark centered above its form; this
+         header only covers the state before either exists: startup failure. -->
     <header
-      v-if="vaultStatus !== 'unlocked'"
+      v-if="startupError"
       class="flex h-14 shrink-0 items-center bg-canvas px-4"
     >
       <h1 class="m-0 font-display text-lg tracking-wide text-ink select-none">sshpfm</h1>

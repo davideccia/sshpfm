@@ -46,8 +46,8 @@ function levelClass(level: string) {
     ref="viewport"
     class="h-[420px] overflow-y-auto rounded-2xl bg-canvas p-4 font-mono text-xs shadow-neu-in"
   >
-    <div v-for="(line, i) in lines" :key="i" class="whitespace-pre-wrap" :class="levelClass(line.level)">
-      <span class="text-ink-faint">{{ line.time.slice(11, 19) }}</span> {{ line.message }}
+    <div v-for="entry in lines" :key="entry.seq" class="whitespace-pre-wrap" :class="levelClass(entry.line.level)">
+      <span class="text-ink-faint">{{ entry.line.time.slice(11, 19) }}</span> {{ entry.line.message }}
     </div>
   </div>
 
