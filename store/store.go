@@ -410,6 +410,35 @@ func (s *Store) ResetVault(ctx context.Context) error {
 	return nil
 }
 
+// ExportData returns every connection with its password stripped, for
+// writing to a portable file. It shares List's ordering so an export is
+// reproducible.
+func (s *Store) ExportData(ctx context.Context) ([]Connection, error) {
+	conns, err := s.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export data: %w", err)
+	}
+	for i, c := range conns {
+		conns[i] = c.Redacted()
+	}
+	return conns, nil
+}
+
+// ImportData creates one connection per entry. Any password on an entry is
+// dropped first: import is meant to restore hosts and ports, never to
+// smuggle a secret in through a hand-edited file. It stops at the first
+// error, leaving whatever was already created in place.
+func (s *Store) ImportData(ctx context.Context, conns []Connection) error {
+	for i, c := range conns {
+		c.ID = 0
+		c.Password = nil
+		if _, err := s.Create(ctx, c); err != nil {
+			return fmt.Errorf("import connection %d (%s): %w", i, c.Label, err)
+		}
+	}
+	return nil
+}
+
 func checkAffected(res sql.Result, id int64, op string) error {
 	n, err := res.RowsAffected()
 	if err != nil {

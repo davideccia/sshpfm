@@ -18,6 +18,14 @@ export function DeleteConnection(arg1) {
   return window['go']['main']['App']['DeleteConnection'](arg1);
 }
 
+export function ExportDatabase() {
+  return window['go']['main']['App']['ExportDatabase']();
+}
+
+export function ImportDatabase() {
+  return window['go']['main']['App']['ImportDatabase']();
+}
+
 export function ListConnections() {
   return window['go']['main']['App']['ListConnections']();
 }

@@ -3,6 +3,7 @@ import {ref, computed, watch, onMounted} from 'vue'
 import {PhWarningCircle as WarningCircle} from '@phosphor-icons/vue'
 import ConnectionSidebar from './components/ConnectionSidebar.vue'
 import ConnectionDetail from './components/ConnectionDetail.vue'
+import SettingsView from './components/SettingsView.vue'
 import VaultGate from './components/VaultGate.vue'
 import {useConnections, type ConnectionDraft} from './composables/useConnections'
 import {useTunnels} from './composables/useTunnels'
@@ -14,7 +15,7 @@ const {connections, isLoading, error, refresh, create, update, remove} = useConn
 const {init: initTunnels, error: tunnelError} = useTunnels()
 const {status: vaultStatus, refresh: refreshVault} = useVault()
 
-type Mode = 'view' | 'create' | 'edit'
+type Mode = 'view' | 'create' | 'edit' | 'settings'
 
 const mode = ref<Mode>('view')
 const selectedId = ref<number | null>(null)
@@ -36,6 +37,10 @@ function selectConnection(id: number) {
 function startCreate() {
   selectedId.value = null
   mode.value = 'create'
+}
+
+function openSettings() {
+  mode.value = 'settings'
 }
 
 function startEdit() {
@@ -123,13 +128,21 @@ onMounted(async () => {
     <div v-else-if="vaultStatus === 'unlocked'" class="flex min-h-0 flex-1">
       <ConnectionSidebar
         :connections="connections"
-        :selected-id="selectedId"
+        :selected-id="mode === 'settings' ? null : selectedId"
+        :settings-active="mode === 'settings'"
         :is-loading="isLoading"
         :error="banner"
         @select="selectConnection"
         @create="startCreate"
+        @settings="openSettings"
+      />
+      <SettingsView
+        v-if="mode === 'settings'"
+        @imported="refresh"
+        @close="cancelForm"
       />
       <ConnectionDetail
+        v-else
         :mode="mode"
         :selected="selected"
         @create="handleCreate"

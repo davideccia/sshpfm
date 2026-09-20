@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import {
   PhPlus as Plus,
+  PhGearSix as GearSix,
   PhWarningCircle as WarningCircle,
   PhArrowSquareOut as ArrowSquareOut,
   PhPower as Power,
@@ -14,6 +15,7 @@ import type {store} from '../../wailsjs/go/models'
 defineProps<{
   connections: store.Connection[]
   selectedId: number | null
+  settingsActive: boolean
   isLoading: boolean
   error: string
 }>()
@@ -23,6 +25,7 @@ const {stateOf, start, stop, openInBrowser} = useTunnels()
 const emit = defineEmits<{
   select: [id: number]
   create: []
+  settings: []
 }>()
 
 function toggleTunnel(id: number) {
@@ -48,6 +51,25 @@ function toggleTunnel(id: number) {
                leading-none tracking-tight text-accent-ink select-none"
       >sshpfm</span>
     </div>
+
+    <!-- Filled with the hover grey rather than the canvas the logo card
+         sits on, so it reads as a distinct, clickable destination without
+         reaching for the accent, which is reserved for primary actions. -->
+    <button
+      type="button"
+      class="flex w-full cursor-pointer items-center justify-center gap-2
+             rounded-2xl bg-hover px-4 py-2.5 text-sm font-semibold text-ink
+             transition-[box-shadow] duration-150 outline-none
+             focus-visible:outline-2 focus-visible:-outline-offset-2
+             focus-visible:outline-accent
+             active:scale-[0.99]"
+      :class="settingsActive ? 'shadow-neu-in' : 'shadow-neu-out hover:shadow-neu-out-sm active:shadow-neu-in'"
+      :aria-current="settingsActive ? 'true' : undefined"
+      @click="emit('settings')"
+    >
+      <GearSix :size="16" weight="bold"/>
+      Settings
+    </button>
 
     <div class="flex items-center justify-between">
       <h2 class="text-base font-semibold text-ink">Connections</h2>

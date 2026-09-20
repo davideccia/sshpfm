@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -250,6 +251,74 @@ func (a *App) OpenInBrowser(id int64) error {
 	url := fmt.Sprintf("http://localhost:%d", c.LocalPort)
 	wailsruntime.BrowserOpenURL(a.ctx, url)
 	return nil
+}
+
+// ExportDatabase lets the user save every connection, minus their
+// passwords, to a JSON file of their choosing. An empty path means the
+// save dialog was cancelled, which is not an error.
+func (a *App) ExportDatabase() error {
+	if err := a.unlocked(); err != nil {
+		return err
+	}
+
+	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
+		Title:           "Export sshpfm connections",
+		DefaultFilename: "sshpfm-export.json",
+		Filters: []wailsruntime.FileFilter{
+			{DisplayName: "JSON (*.json)", Pattern: "*.json"},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("export database: %w", err)
+	}
+	if path == "" {
+		return nil
+	}
+
+	conns, err := a.store.ExportData(a.ctx)
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(conns, "", "  ")
+	if err != nil {
+		return fmt.Errorf("export database: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return fmt.Errorf("export database: %w", err)
+	}
+	return nil
+}
+
+// ImportDatabase lets the user restore connections from a file exported by
+// ExportDatabase. An empty path means the open dialog was cancelled, which
+// is not an error.
+func (a *App) ImportDatabase() error {
+	if err := a.unlocked(); err != nil {
+		return err
+	}
+
+	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title: "Import sshpfm connections",
+		Filters: []wailsruntime.FileFilter{
+			{DisplayName: "JSON (*.json)", Pattern: "*.json"},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("import database: %w", err)
+	}
+	if path == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("import database: %w", err)
+	}
+	var conns []store.Connection
+	if err := json.Unmarshal(data, &conns); err != nil {
+		return fmt.Errorf("import database: invalid file: %w", err)
+	}
+	return a.store.ImportData(a.ctx, conns)
 }
 
 // TrustHostKey records the host key the given tunnel stopped on and

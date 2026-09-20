@@ -11,6 +11,10 @@ export function CreateVault(arg1:string):Promise<void>;
 
 export function DeleteConnection(arg1:number):Promise<void>;
 
+export function ExportDatabase():Promise<void>;
+
+export function ImportDatabase():Promise<void>;
+
 export function ListConnections():Promise<Array<store.Connection>>;
 
 export function OpenInBrowser(arg1:number):Promise<void>;

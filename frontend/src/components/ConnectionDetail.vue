@@ -1,11 +1,12 @@
 <script lang="ts" setup>
-import {ref, computed, watch} from 'vue'
+import {ref, computed} from 'vue'
 import {
   PhPlugs as Plugs,
   PhPencilSimple as PencilSimple,
   PhTrash as Trash,
   PhPlay as Play,
   PhStop as Stop,
+  PhArrowSquareOut as ArrowSquareOut,
   PhWarningCircle as WarningCircle,
 } from '@phosphor-icons/vue'
 import ConnectionForm from './ConnectionForm.vue'
@@ -33,16 +34,9 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const {statusOf, stateOf, start, stop, trustHostKey} = useTunnels()
+const {statusOf, stateOf, start, stop, openInBrowser, trustHostKey} = useTunnels()
 
 const confirmingDelete = ref(false)
-const activeTab = ref<'overview' | 'log'>('overview')
-watch(
-  () => props.selected?.id,
-  () => {
-    activeTab.value = 'overview'
-  },
-)
 
 const status = computed(() => (props.selected ? statusOf(props.selected.id) : null))
 const state = computed(() => (props.selected ? stateOf(props.selected.id) : 'stopped'))
@@ -119,32 +113,76 @@ function dismissHostKey() {
     <div v-else-if="selected" class="flex max-w-[560px] flex-col gap-4">
       <div class="flex items-center justify-between gap-4">
         <h2 class="truncate text-xl font-semibold text-ink">{{ selected.label }}</h2>
-        <div class="flex shrink-0 gap-2">
-          <!-- Stopping is routine and reversible, so it stays neutral.
-               Red is reserved for Delete: two red buttons side by side
-               made the destructive one easy to hit by mistake. -->
-          <Button
-            :variant="isUp ? 'secondary' : 'primary'"
-            @click="toggleTunnel"
-          >
-            <Stop v-if="isUp" :size="16" weight="fill"/>
-            <Play v-else :size="16" weight="fill"/>
-            {{ isUp ? 'Stop' : 'Start' }}
-          </Button>
-          <Button
-            variant="secondary"
+
+        <div class="flex shrink-0 items-center gap-2">
+          <!-- Icon-only and outlined rather than filled: secondary to
+               Start/Stop, kept visually quiet. -->
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center justify-center
+                   rounded-xl border border-accent/40 p-2.5 text-accent-ink
+                   transition-colors duration-150 outline-none
+                   hover:bg-hover
+                   disabled:cursor-not-allowed disabled:opacity-40
+                   focus-visible:outline-2 focus-visible:outline-offset-2
+                   focus-visible:outline-accent"
             :disabled="isUp"
-            :title="isUp ? 'Stop the tunnel before editing' : undefined"
+            :title="isUp ? 'Stop the tunnel before editing' : 'Edit connection'"
+            aria-label="Edit connection"
             @click="emit('edit')"
           >
             <PencilSimple :size="16"/>
-            Edit
-          </Button>
-          <Button variant="danger" @click="confirmingDelete = true">
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center justify-center
+                   rounded-xl border border-danger/40 p-2.5 text-danger
+                   transition-colors duration-150 outline-none
+                   hover:bg-danger-wash
+                   disabled:cursor-not-allowed disabled:opacity-40
+                   focus-visible:outline-2 focus-visible:outline-offset-2
+                   focus-visible:outline-accent"
+            :disabled="isUp"
+            :title="isUp ? 'Stop the tunnel before deleting' : 'Delete connection'"
+            aria-label="Delete connection"
+            @click="confirmingDelete = true"
+          >
             <Trash :size="16"/>
-            Delete
-          </Button>
+          </button>
         </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <Button
+          :variant="isUp ? 'secondary' : 'primary'"
+          @click="toggleTunnel"
+        >
+          <Stop v-if="isUp" :size="16" weight="fill"/>
+          <Play v-else :size="16" weight="fill"/>
+          {{ isUp ? 'Stop' : 'Start' }}
+        </Button>
+
+        <!-- Only meaningful once the tunnel is fully up: while connecting
+             the browser would just land on a refused connection. -->
+        <button
+          type="button"
+          class="inline-flex cursor-pointer items-center justify-center
+                 rounded-xl border border-accent/40 p-2.5 text-accent-ink
+                 transition-colors duration-150 outline-none
+                 hover:bg-hover
+                 disabled:cursor-not-allowed disabled:opacity-40
+                 focus-visible:outline-2 focus-visible:outline-offset-2
+                 focus-visible:outline-accent"
+          :disabled="state !== 'active'"
+          :title="state === 'active'
+            ? `Open http://localhost:${selected.localPort} in your browser`
+            : 'Start the tunnel first'"
+          :aria-label="`Open ${selected.label} in your browser`"
+          @click="openInBrowser(selected.id)"
+        >
+          <ArrowSquareOut :size="16"/>
+        </button>
       </div>
 
       <div class="flex flex-wrap items-center gap-2 text-sm">
@@ -168,22 +206,10 @@ function dismissHostKey() {
         {{ status.error }}
       </p>
 
-      <div class="flex gap-2">
-        <Button :variant="activeTab === 'overview' ? 'primary' : 'secondary'" @click="activeTab = 'overview'">
-          Overview
-        </Button>
-        <Button :variant="activeTab === 'log' ? 'primary' : 'secondary'" @click="activeTab = 'log'">
-          Log
-        </Button>
-      </div>
-
       <!-- Six fields in two columns. Host and Auth span a row each: they
            hold the longest values, and the remaining four fill two full
            rows between them. -->
-      <dl
-        v-if="activeTab === 'overview'"
-        class="m-0 grid grid-cols-2 gap-4 rounded-2xl bg-canvas p-4 shadow-neu-out"
-      >
+      <dl class="m-0 grid grid-cols-2 gap-4 rounded-2xl bg-canvas p-4 shadow-neu-out">
         <div class="col-span-2">
           <dt class="mb-0.5 text-xs text-ink-muted">Host</dt>
           <dd class="m-0 truncate font-mono text-sm text-ink">{{ selected.host }}</dd>
@@ -214,7 +240,7 @@ function dismissHostKey() {
         </div>
       </dl>
 
-      <ConnectionLogPanel v-else :connection-id="selected.id" :is-up="isUp"/>
+      <ConnectionLogPanel :connection-id="selected.id" :is-up="isUp"/>
     </div>
 
     <div v-else class="flex h-full flex-col items-center justify-center gap-3 text-ink-faint">
