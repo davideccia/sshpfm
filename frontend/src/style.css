@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/*
+ * sshpfm is dark only: there is no light palette and no `dark:` variant in
+ * the codebase. Every token below is authored for a near-black neutral
+ * canvas, so flipping one value is never enough to add a light mode.
+ *
+ * Hex literals rather than references to Tailwind's own scale, so the
+ * palette stays readable as a palette. The comment names the step it came
+ * from.
+ */
+@theme {
+  /* Surfaces, darkest to lightest. */
+  --color-canvas: #0a0a0a; /* neutral-950 */
+  --color-surface: #171717; /* neutral-900 */
+  --color-raised: #262626; /* neutral-800 */
+  --color-hover: #2e2e2e;
+
+  --color-line: #262626; /* neutral-800 */
+  --color-line-strong: #404040; /* neutral-700 */
+
+  --color-ink: #f5f5f5; /* neutral-100 */
+  --color-ink-muted: #a3a3a3; /* neutral-400 */
+  --color-ink-faint: #737373; /* neutral-500 */
+
+  /*
+   * Purple is the only accent. `accent` is the brand hue and is never put
+   * behind text: white on it is 3.96:1, under the 4.5:1 floor. Filled
+   * buttons use `accent-strong` (5.4:1 against white) and purple text uses
+   * `accent-ink` (7.5:1 against the canvas).
+   */
+  --color-accent: #a855f7; /* purple-500 */
+  --color-accent-strong: #9333ea; /* purple-600 */
+  --color-accent-ink: #c084fc; /* purple-400 */
+
+  /* Same split as the accent: bright for text, saturated for fills. */
+  --color-danger: #f87171; /* red-400 */
+  --color-danger-strong: #dc2626; /* red-600 */
+  --color-danger-wash: color-mix(in oklab, #dc2626 14%, transparent);
+
+  /* Tunnel state indicators. Semantic, so exempt from the one-accent rule. */
+  --color-state-stopped: #737373; /* neutral-500 */
+  --color-state-connecting: #fbbf24; /* amber-400 */
+  --color-state-active: #34d399; /* emerald-400 */
+  --color-state-error: #f87171; /* red-400 */
+
+  /* Scrim sits above the canvas but below the dialog. */
+  --color-scrim: rgb(0 0 0 / 0.6);
+
+  --font-sans: "Geist Variable", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /*
+   * The only looping animation in the app. It earns its place: a tunnel
+   * mid-handshake looks identical to a stalled one otherwise.
+   */
+  --animate-dot-pulse: dot-pulse 1.2s ease-in-out infinite;
+
+  @keyframes dot-pulse {
+    50% {
+      opacity: 0.3;
+    }
+  }
+}
+
+@layer base {
+  html {
+    /*
+     * Without this the number spinners in TextField render as light-mode
+     * controls on a near-black input.
+     */
+    color-scheme: dark;
+    background-color: var(--color-canvas);
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #app {
+    height: 100vh;
+  }
+}
