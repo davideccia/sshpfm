@@ -5,6 +5,9 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   GO_VERSION: "1.25"
   NODE_VERSION: "lts/*"

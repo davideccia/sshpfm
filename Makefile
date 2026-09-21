@@ -49,7 +49,7 @@ build-windows:
 	wails build -platform windows/amd64 -clean -nsis
 
 build-linux:
-	wails build -platform linux/amd64 -clean
+	wails build -platform linux/amd64 -clean -tags webkit2_41
 
 dmg: build-mac
 	@rm -f $(BIN)/$(APP)-$(VERSION).dmg
