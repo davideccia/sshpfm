@@ -81,6 +81,18 @@ async function handleDelete(id: number) {
   }
 }
 
+async function handleDeleteMany(ids: number[]) {
+  for (const id of ids) {
+    try {
+      await remove(id)
+      if (selectedId.value === id) selectedId.value = null
+    } catch {
+      // The error is already visible in the sidebar; keep going with the rest.
+    }
+  }
+  mode.value = 'view'
+}
+
 // Every binding below the gate refuses to answer while the vault is shut,
 // so the data load hangs off the transition into `unlocked` rather than
 // off mount. That covers both unlocking and setting the password up.
@@ -135,6 +147,7 @@ onMounted(async () => {
         @select="selectConnection"
         @create="startCreate"
         @settings="openSettings"
+        @delete-many="handleDeleteMany"
       />
       <SettingsView
         v-if="mode === 'settings'"
