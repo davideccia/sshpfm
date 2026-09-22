@@ -13,6 +13,17 @@
 > [!NOTE]
 > This is a personal tool built for one workflow — local port forwarding through jump hosts — not a general-purpose SSH client.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/unlock.png" alt="Unlock screen" width="49%">
+  <img src="docs/screenshots/tunnel-active.png" alt="Active tunnel with live logs" width="49%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/new-connection.png" alt="New connection form" width="49%">
+  <img src="docs/screenshots/settings.png" alt="Settings — import/export connections" width="49%">
+</p>
+
 ## Features
 
 - **Connection profiles** — host, port, credentials, and one or more local→remote port forwards, persisted in a local SQLite database.
