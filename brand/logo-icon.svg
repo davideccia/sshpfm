@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080" role="img" aria-labelledby="t">
+  <title id="t">sshpfm</title>
+  <rect width="1080" height="1080" fill="#1c1c20"/>
+  <g fill="none" stroke="#a855f7" transform="translate(0 28)">
+    <!-- tunnel -->
+    <path d="M310 810V480a230 230 0 0 1 460 0V810" stroke-width="72"/>
+    <!-- prompt travelling through it -->
+    <path d="M465 470L605 610L465 750" stroke-width="66" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
