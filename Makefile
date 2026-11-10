@@ -65,10 +65,12 @@ dmg: build-mac
 appicon:
 	go run ./tools/appicon brand/logo-icon.png build/appicon.png
 
+# The frontend goes first: main.go embeds frontend/dist, which a clean
+# checkout does not have, so go vet would fail before reaching the Go code.
 check:
+	cd frontend && npm run build
 	go vet ./...
 	go test ./...
-	cd frontend && npm run build
 
 clean:
 	rm -rf $(BIN) frontend/dist
