@@ -186,14 +186,8 @@ func (s *Store) CreateTag(ctx context.Context, t Tag) (int64, error) {
 	if err := t.normalize(); err != nil {
 		return 0, err
 	}
-	var clash bool
-	if err := s.db.QueryRowContext(ctx,
-		`SELECT EXISTS (SELECT 1 FROM tags WHERE label = ?)`, t.Label,
-	).Scan(&clash); err != nil {
-		return 0, fmt.Errorf("create tag: %w", err)
-	}
-	if clash {
-		return 0, fmt.Errorf("a tag named %q already exists", t.Label)
+	if err := s.checkLabelFree(ctx, t.Label, 0); err != nil {
+		return 0, err
 	}
 	res, err := s.db.ExecContext(ctx, `INSERT INTO tags (label, color) VALUES (?, ?)`, t.Label, t.Color)
 	if err != nil {
@@ -212,14 +206,8 @@ func (s *Store) UpdateTag(ctx context.Context, t Tag) error {
 		return err
 	}
 
-	var clash bool
-	if err := s.db.QueryRowContext(ctx,
-		`SELECT EXISTS (SELECT 1 FROM tags WHERE label = ? AND id != ?)`, t.Label, t.ID,
-	).Scan(&clash); err != nil {
-		return fmt.Errorf("update tag %d: %w", t.ID, err)
-	}
-	if clash {
-		return fmt.Errorf("a tag named %q already exists", t.Label)
+	if err := s.checkLabelFree(ctx, t.Label, t.ID); err != nil {
+		return err
 	}
 
 	res, err := s.db.ExecContext(ctx, `UPDATE tags SET label = ?, color = ? WHERE id = ?`, t.Label, t.Color, t.ID)
@@ -227,6 +215,23 @@ func (s *Store) UpdateTag(ctx context.Context, t Tag) error {
 		return fmt.Errorf("update tag %d: %w", t.ID, err)
 	}
 	return checkTagAffected(res, t.ID, "update")
+}
+
+// checkLabelFree refuses a label another Tag already carries, compared
+// case-insensitively through the column's NOCASE collation. exceptID is
+// the Tag being renamed, or 0 for a new one. The UNIQUE index would catch
+// the clash too, but with a message no user should read.
+func (s *Store) checkLabelFree(ctx context.Context, label string, exceptID int64) error {
+	var clash bool
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM tags WHERE label = ? AND id != ?)`, label, exceptID,
+	).Scan(&clash); err != nil {
+		return fmt.Errorf("check tag label %q: %w", label, err)
+	}
+	if clash {
+		return fmt.Errorf("a tag named %q already exists", label)
+	}
+	return nil
 }
 
 // DeleteTag removes a Tag. The Connections that carried it lose the link

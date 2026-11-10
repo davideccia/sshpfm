@@ -56,7 +56,7 @@ function clearTagFilter() {
   activeTagIds.value = new Set()
 }
 
-// A Tag deleted in Settings must not keep filtering from beyond the grave.
+// A Tag deleted in the Tags view must not keep filtering from beyond the grave.
 watch(() => props.tags, (tags) => {
   const known = new Set(tags.map(t => t.id))
   if ([...activeTagIds.value].some(id => !known.has(id))) {

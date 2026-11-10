@@ -6,8 +6,9 @@ import {refreshTags} from './useTags'
 /**
  * What the form produces. `id` is assigned by the backend, and
  * `hasPassword` and `tags` are read-only reports from the store — the form
- * sends the password itself in `password`, or null to leave the stored one
- * alone, and the full Tag set in `tagIds` plus `newTags`.
+ * sends the password itself in `password`, or leaves it undefined (dropped
+ * by the bridge) to keep the stored one, and the full Tag set in `tagIds`
+ * plus `newTags`.
  */
 export type ConnectionDraft = Omit<store.Connection, 'id' | 'hasPassword' | 'tags' | 'convertValues'>
 

@@ -1,7 +1,7 @@
 /**
  * Suggested Tag colours. A Tag's colour is the user's free choice, so
  * these are data rather than design tokens: they seed a newly typed Tag
- * and sit next to the custom colour picker in Settings. Picked to stay
+ * and sit next to the custom colour picker in the Tags view. Picked to stay
  * clear of purple (the accent) and of the `state-*` tunnel colours.
  */
 export const TAG_SWATCHES = [

@@ -28,6 +28,8 @@ const {tags, create: createTag, update: updateTag, remove: removeTag} = useTags(
 const NEW_TAG = 0
 
 const editing = ref<{id: number, label: string, color: string} | null>(null)
+const tagError = ref('')
+const deleting = ref<store.Tag | null>(null)
 
 const rows = computed<store.Tag[]>(() =>
   editing.value?.id === NEW_TAG
@@ -48,8 +50,6 @@ function startAddTag() {
   editing.value = {id: NEW_TAG, label: '', color: nextSwatch(tags.value.length)}
   focusLabel()
 }
-const tagError = ref('')
-const deleting = ref<store.Tag | null>(null)
 
 function startEditTag(tag: store.Tag) {
   tagError.value = ''
