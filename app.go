@@ -114,8 +114,9 @@ func (a *App) shutdown(context.Context) {
 		a.tunnels.StopAll()
 	}
 	if a.store != nil {
-		// Drop the master key before anything else, so it does not sit in
-		// memory through the rest of the teardown.
+		// With the tunnels down, drop the master key before closing the
+		// database, so it does not sit in memory through the rest of the
+		// teardown.
 		a.store.Lock()
 		if err := a.store.Close(); err != nil {
 			log.Printf("sshpfm: close store: %v", err)

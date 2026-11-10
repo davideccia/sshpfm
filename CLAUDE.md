@@ -87,4 +87,4 @@ Four rules the tokens encode, all load-bearing:
 - **One accent.** Purple only, except the semantic `state-*` colours for tunnel status and user-chosen Tag colours, which appear only as a swatch dot (`TagChip`), never behind text. The suggested Tag swatches are data in `src/lib/tags.ts`, not tokens.
 - **Shape consistency.** Panels/dialogs use `rounded-2xl`, buttons/inputs use `rounded-xl`, inline data chips use `rounded-lg` — pick the radius by element category, not per component.
 
-Icons come from `@phosphor-icons/vue`. The font is Lilex (a monospace face, used for both `--font-sans` and `--font-mono` — the app has one typeface end to end), self-hosted through `@fontsource-variable/lilex` — the app must render with no network.
+Icons come from `@phosphor-icons/vue`. The font is Lilex (a monospace face, used for both `--font-sans` and `--font-mono`, so all UI text is one family), self-hosted through `@fontsource-variable/lilex`. The one exception is Dited (`--font-display`), reserved for the "sshpfm" wordmark and self-hosted from `src/assets/fonts/`. The app must render with no network.
