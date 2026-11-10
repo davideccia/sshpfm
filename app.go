@@ -114,8 +114,9 @@ func (a *App) shutdown(context.Context) {
 		a.tunnels.StopAll()
 	}
 	if a.store != nil {
-		// Drop the master key before anything else, so it does not sit in
-		// memory through the rest of the teardown.
+		// With the tunnels down, drop the master key before closing the
+		// database, so it does not sit in memory through the rest of the
+		// teardown.
 		a.store.Lock()
 		if err := a.store.Close(); err != nil {
 			log.Printf("sshpfm: close store: %v", err)
@@ -177,6 +178,41 @@ func (a *App) UpdateConnection(c store.Connection) error {
 		return errors.New("stop the tunnel before editing this connection")
 	}
 	return a.store.Update(a.ctx, c)
+}
+
+// ListTags returns every Tag with how many Connections carry it.
+func (a *App) ListTags() ([]store.Tag, error) {
+	if err := a.unlocked(); err != nil {
+		return nil, err
+	}
+	return a.store.ListTags(a.ctx)
+}
+
+// CreateTag adds a Tag from the Tags view, before any Connection uses it.
+func (a *App) CreateTag(t store.Tag) (int64, error) {
+	if err := a.unlocked(); err != nil {
+		return 0, err
+	}
+	return a.store.CreateTag(a.ctx, t)
+}
+
+// UpdateTag renames or recolours a Tag. Unlike UpdateConnection it is
+// allowed while tunnels are up: a Tag is not part of any tunnel's settings,
+// and refusing would make a Tag on an always-on tunnel impossible to rename.
+func (a *App) UpdateTag(t store.Tag) error {
+	if err := a.unlocked(); err != nil {
+		return err
+	}
+	return a.store.UpdateTag(a.ctx, t)
+}
+
+// DeleteTag removes a Tag from every Connection that carries it. Allowed
+// while tunnels are up, for the same reason as UpdateTag.
+func (a *App) DeleteTag(id int64) error {
+	if err := a.unlocked(); err != nil {
+		return err
+	}
+	return a.store.DeleteTag(a.ctx, id)
 }
 
 // DeleteConnection removes a connection profile by id, stopping its

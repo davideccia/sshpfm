@@ -44,6 +44,14 @@ Go side:
 - `internal/vault/` — Argon2id key derivation and AES-256-GCM sealing, with no knowledge of connections or SQL
 - `internal/tunnel/` — `Manager` owns one `tunnel` per connection id: dial, listen locally, pipe streams, keepalive, and push `Status` changes out through the callback `app.go` wires to the `tunnel:status` Wails event. `authMethods` offers the agent key first and the profile's stored password second (as both `password` and `keyboard-interactive`, since PAM servers advertise only the latter); a missing agent is fatal only when there is no password to fall back on
 
+### Tags
+
+A Tag (`id`, `label`, `color`) is attached to Connections many-to-many through `connection_tags`; both foreign keys cascade, so deleting a Tag only unlinks it and deleting a Connection never deletes a Tag. Labels are unique case-insensitively (`COLLATE NOCASE`, at most 24 characters), colours are free `#rrggbb`. The domain vocabulary lives in `CONTEXT.md`.
+
+- **A Connection's Tags are always replaced, never merged.** `Tags` is read-only; on Create/Update the store sets the full set from `TagIDs` plus `NewTags`, in the same transaction as the profile. `NewTags` are matched by label and created only if missing, which is what lets the form hold a typed Tag until Save, so cancelling leaves nothing behind. Import uses the same path to match exported Tags by label.
+- **Assigning Tags is a Connection edit**, so it is refused while the tunnel is up. Adding, renaming, recolouring and deleting a Tag (`CreateTag`/`UpdateTag`/`DeleteTag`, from the Tags view, `TagsView`) are not, since no tunnel depends on them.
+- The sidebar's Tag filter is AND, in memory only, and selection for bulk delete is limited to visible rows.
+
 ### Password storage
 
 Optional per-connection SSH passwords are encrypted at rest. `vault.Derive` stretches the master password into 64 bytes: the first half is the AES key and never leaves memory, the second is the verifier stored in the `vault` table. The master password is asked for at every launch and gates the whole UI; losing it is unrecoverable by design, and `ResetVault` clears the vault and every `password_enc` while keeping the profiles.
@@ -56,7 +64,7 @@ Three rules hold this together:
 
 `app.go` records a startup failure in `initErr` instead of killing the process, so the window still opens and every binding fails with a readable message (`ready()`). Bindings that touch connection data use `unlocked()`, which adds the vault check on top. It also refuses edits to a connection whose tunnel is up, and refuses to open a browser at a tunnel that is down.
 
-Frontend (`frontend/src`): `App.vue` holds the sidebar/detail layout and view mode, and renders `VaultGate` instead of them until `useVault` reports `unlocked`. `composables/` wrap the generated bindings (`useConnections`, `useTunnels` — the latter subscribes to `tunnel:status` — and `useVault`), `components/ui/` holds the primitives. No direct filesystem/network/SSH access from the frontend.
+Frontend (`frontend/src`): `App.vue` holds the sidebar/detail layout and view mode, and renders `VaultGate` instead of them until `useVault` reports `unlocked`. `composables/` wrap the generated bindings (`useConnections`, `useTags`, `useTunnels` — the latter subscribes to `tunnel:status` — and `useVault`), `components/ui/` holds the primitives. No direct filesystem/network/SSH access from the frontend.
 
 ### Styling
 
@@ -76,7 +84,7 @@ Four rules the tokens encode, all load-bearing:
 
 - **Dark only.** `style.css` declares `color-scheme: dark` unconditionally, there is no light palette and no `dark:` variant anywhere. That is also why `main.go` pins the native chrome to dark, and why the neumorphic shadow pair uses tinted-black/tinted-white rather than the light-grey base a typical neumorphism reference palette assumes.
 - **Accent contrast.** `accent` is the brand hue and never sits behind text (3.96:1). Filled buttons use `accent-strong`, purple text uses `accent-ink`. `danger` splits the same way.
-- **One accent.** Purple only, except the semantic `state-*` colours for tunnel status.
+- **One accent.** Purple only, except the semantic `state-*` colours for tunnel status and user-chosen Tag colours, which appear only as a swatch dot (`TagChip`), never behind text. The suggested Tag swatches are data in `src/lib/tags.ts`, not tokens.
 - **Shape consistency.** Panels/dialogs use `rounded-2xl`, buttons/inputs use `rounded-xl`, inline data chips use `rounded-lg` — pick the radius by element category, not per component.
 
-Icons come from `@phosphor-icons/vue`. The font is Lilex (a monospace face, used for both `--font-sans` and `--font-mono` — the app has one typeface end to end), self-hosted through `@fontsource-variable/lilex` — the app must render with no network.
+Icons come from `@phosphor-icons/vue`. The font is Lilex (a monospace face, used for both `--font-sans` and `--font-mono`, so all UI text is one family), self-hosted through `@fontsource-variable/lilex`. The one exception is Dited (`--font-display`), reserved for the "sshpfm" wordmark and self-hosted from `src/assets/fonts/`. The app must render with no network.

@@ -42,6 +42,18 @@ type Connection struct {
 	// HasPassword is read-only. It tells the UI that a password exists
 	// without ever sending the secret itself.
 	HasPassword bool `json:"hasPassword"`
+
+	// Tags is read-only: the Tags attached to this Connection, ordered by
+	// label. Never nil on a profile read from the store.
+	Tags []Tag `json:"tags"`
+
+	// TagIDs and NewTags are write-only and together describe the full set
+	// of Tags the Connection should carry after Create or Update: existing
+	// Tags by id, plus Tags the form typed in that may not exist yet. The
+	// set is always replaced, never merged, so leaving both empty removes
+	// every Tag.
+	TagIDs  []int64 `json:"tagIds,omitempty"`
+	NewTags []Tag   `json:"newTags,omitempty"`
 }
 
 // Redacted returns a copy safe to hand to the frontend: the secret is
@@ -119,6 +131,21 @@ var migrations = []string{
 		argon_memory  INTEGER NOT NULL,
 		argon_threads INTEGER NOT NULL
 	);`,
+
+	// Tag labels are unique case-insensitively: "Prod" and "prod" are the
+	// same Tag. Deleting either side of a link drops the link, never the
+	// other side.
+	`CREATE TABLE tags (
+		id    INTEGER PRIMARY KEY AUTOINCREMENT,
+		label TEXT NOT NULL UNIQUE COLLATE NOCASE,
+		color TEXT NOT NULL
+	);
+	CREATE TABLE connection_tags (
+		connection_id INTEGER NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
+		tag_id        INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+		PRIMARY KEY (connection_id, tag_id)
+	);
+	CREATE INDEX connection_tags_tag ON connection_tags(tag_id);`,
 }
 
 // Open creates (if needed) and opens the SQLite database at path,
@@ -203,7 +230,7 @@ const selectColumns = `SELECT id, label, host, ssh_port, username, remote_bind_p
 
 // scanConnection reads one row and decrypts its password, if any.
 func (s *Store) scanConnection(row interface{ Scan(...any) error }) (Connection, error) {
-	var c Connection
+	c := Connection{Tags: []Tag{}}
 	var enc []byte
 	if err := row.Scan(&c.ID, &c.Label, &c.Host, &c.SSHPort, &c.Username, &c.RemoteBindPort, &c.LocalPort, &enc); err != nil {
 		return Connection{}, err
@@ -244,6 +271,11 @@ func (s *Store) List(ctx context.Context) ([]Connection, error) {
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list connections: %w", err)
 	}
+	rows.Close()
+
+	if err := attachTags(ctx, s.db, conns); err != nil {
+		return nil, fmt.Errorf("list connections: %w", err)
+	}
 	return conns, nil
 }
 
@@ -257,7 +289,11 @@ func (s *Store) Get(ctx context.Context, id int64) (Connection, error) {
 	if err != nil {
 		return Connection{}, fmt.Errorf("get connection %d: %w", id, err)
 	}
-	return c, nil
+	one := []Connection{c}
+	if err := attachTags(ctx, s.db, one); err != nil {
+		return Connection{}, fmt.Errorf("get connection %d: %w", id, err)
+	}
+	return one[0], nil
 }
 
 // passwordArg turns the write-only password into a SQL argument. An
@@ -274,6 +310,8 @@ func (s *Store) passwordArg(p *string) (any, error) {
 }
 
 // Create validates and inserts a new connection, returning its assigned id.
+// The profile and its Tags are written in one transaction, so a bad Tag
+// leaves neither behind.
 func (s *Store) Create(ctx context.Context, c Connection) (int64, error) {
 	if err := c.validate(); err != nil {
 		return 0, err
@@ -282,14 +320,31 @@ func (s *Store) Create(ctx context.Context, c Connection) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("create connection: %w", err)
 	}
-	res, err := s.db.ExecContext(ctx,
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("create connection: %w", err)
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx,
 		`INSERT INTO connections (label, host, ssh_port, username, remote_bind_port, local_port, password_enc) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		c.Label, c.Host, c.SSHPort, c.Username, c.RemoteBindPort, c.LocalPort, enc,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("create connection: %w", err)
 	}
-	return res.LastInsertId()
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("create connection: %w", err)
+	}
+	if err := setConnectionTags(ctx, tx, id, c.TagIDs, c.NewTags); err != nil {
+		return 0, fmt.Errorf("create connection: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("create connection: %w", err)
+	}
+	return id, nil
 }
 
 // The two UPDATE statements differ only in whether they touch the
@@ -306,7 +361,8 @@ const (
 // It returns ErrNotFound when no row carries the given id.
 //
 // A nil Password leaves the stored one untouched, which is what lets the
-// edit form show an empty password field without wiping the secret.
+// edit form show an empty password field without wiping the secret. Tags,
+// by contrast, are always replaced by TagIDs plus NewTags.
 func (s *Store) Update(ctx context.Context, c Connection) error {
 	if c.ID == 0 {
 		return fmt.Errorf("id is required")
@@ -327,11 +383,26 @@ func (s *Store) Update(ctx context.Context, c Connection) error {
 	}
 	args = append(args, c.ID)
 
-	res, err := s.db.ExecContext(ctx, query, args...)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("update connection %d: %w", c.ID, err)
 	}
-	return checkAffected(res, c.ID, "update")
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("update connection %d: %w", c.ID, err)
+	}
+	if err := checkAffected(res, c.ID, "update"); err != nil {
+		return err
+	}
+	if err := setConnectionTags(ctx, tx, c.ID, c.TagIDs, c.NewTags); err != nil {
+		return fmt.Errorf("update connection %d: %w", c.ID, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("update connection %d: %w", c.ID, err)
+	}
+	return nil
 }
 
 // Delete removes a connection by id, returning ErrNotFound when it is absent.
@@ -426,12 +497,17 @@ func (s *Store) ExportData(ctx context.Context) ([]Connection, error) {
 
 // ImportData creates one connection per entry. Any password on an entry is
 // dropped first: import is meant to restore hosts and ports, never to
-// smuggle a secret in through a hand-edited file. It stops at the first
-// error, leaving whatever was already created in place.
+// smuggle a secret in through a hand-edited file. Tags are matched by
+// label, since ids from another database mean nothing here: an exported
+// Tag joins the local Tag of the same name, or is created. It stops at the
+// first error, leaving whatever was already created in place.
 func (s *Store) ImportData(ctx context.Context, conns []Connection) error {
 	for i, c := range conns {
 		c.ID = 0
 		c.Password = nil
+		c.TagIDs = nil
+		c.NewTags = append(c.NewTags, c.Tags...)
+		c.Tags = nil
 		if _, err := s.Create(ctx, c); err != nil {
 			return fmt.Errorf("import connection %d (%s): %w", i, c.Label, err)
 		}

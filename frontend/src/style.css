@@ -39,7 +39,7 @@
    * Purple is the only accent. `accent` is the brand hue and is never put
    * behind text: white on it is 3.96:1, under the 4.5:1 floor. Filled
    * buttons use `accent-strong` (5.4:1 against white) and purple text uses
-   * `accent-ink` (7.5:1 against the canvas).
+   * `accent-ink` (6.4:1 against the canvas).
    */
   --color-accent: #a855f7; /* purple-500 */
   --color-accent-strong: #9333ea; /* purple-600 */
@@ -91,8 +91,8 @@
   /* Scrim sits above the canvas but below the dialog. */
   --color-scrim: rgb(0 0 0 / 0.6);
 
-  /* Lilex is a monospace face; it covers both roles so the app has one
-   * typeface end to end rather than pairing it with a second family. */
+  /* Lilex is a monospace face; it covers both roles, so all UI text is
+   * set in one family. Dited, below, is for the wordmark alone. */
   --font-sans: "Lilex Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-mono: "Lilex Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
   /* Wordmark only — see the @font-face above. */

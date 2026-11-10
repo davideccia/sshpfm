@@ -2,7 +2,10 @@
 import {reactive, computed, watch} from 'vue'
 import TextField from './ui/TextField.vue'
 import Button from './ui/Button.vue'
+import TagInput from './TagInput.vue'
 import type {ConnectionDraft} from '../composables/useConnections'
+import {useTags} from '../composables/useTags'
+import type {TagRef} from '../lib/tags'
 import type {store} from '../../wailsjs/go/models'
 
 /**
@@ -15,12 +18,13 @@ import type {store} from '../../wailsjs/go/models'
  * three-way value on submit. `clearPassword` is the one way to remove a
  * stored secret, since an empty field has to mean "leave it alone".
  */
-type FormState = Omit<ConnectionDraft, 'sshPort' | 'remoteBindPort' | 'localPort' | 'password'> & {
+type FormState = Omit<ConnectionDraft, 'sshPort' | 'remoteBindPort' | 'localPort' | 'password' | 'tagIds' | 'newTags'> & {
   sshPort: number | null
   remoteBindPort: number | null
   localPort: number | null
   password: string
   clearPassword: boolean
+  tags: TagRef[]
 }
 
 const props = defineProps<{
@@ -47,8 +51,11 @@ function stateFrom(initial?: store.Connection | null): FormState {
     // to seed it with, and an empty field is what "keep it" looks like.
     password: '',
     clearPassword: false,
+    tags: (initial?.tags ?? []).map(t => ({id: t.id, label: t.label, color: t.color})),
   }
 }
+
+const {tags: availableTags} = useTags()
 
 const form = reactive<FormState>(stateFrom(props.initial))
 
@@ -116,6 +123,9 @@ function handleSubmit() {
     localPort: form.localPort as number,
     remoteBindPort: form.remoteBindPort as number,
     password: passwordValue(),
+    // The full set, every time: the backend replaces rather than merges.
+    tagIds: form.tags.flatMap(t => t.id === undefined ? [] : [t.id]),
+    newTags: form.tags.flatMap(t => t.id === undefined ? [{id: 0, label: t.label, color: t.color}] : []),
   })
 }
 </script>
@@ -172,6 +182,8 @@ function handleSubmit() {
           : 'Remove the saved password' }}
       </button>
     </div>
+
+    <TagInput v-model="form.tags" :available="availableTags"/>
 
     <div class="grid grid-cols-3 gap-3">
       <TextField

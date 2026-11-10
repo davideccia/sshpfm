@@ -1,13 +1,16 @@
 import {reactive, toRefs} from 'vue'
 import {CreateConnection, ListConnections, UpdateConnection, DeleteConnection} from '../../wailsjs/go/main/App'
-import type {store} from '../../wailsjs/go/models'
+import {store} from '../../wailsjs/go/models'
+import {refreshTags} from './useTags'
 
 /**
  * What the form produces. `id` is assigned by the backend, and
- * `hasPassword` is a read-only report from the store — the form sends the
- * password itself in `password`, or null to leave the stored one alone.
+ * `hasPassword` and `tags` are read-only reports from the store — the form
+ * sends the password itself in `password`, or leaves it undefined (dropped
+ * by the bridge) to keep the stored one, and the full Tag set in `tagIds`
+ * plus `newTags`.
  */
-export type ConnectionDraft = Omit<store.Connection, 'id' | 'hasPassword'>
+export type ConnectionDraft = Omit<store.Connection, 'id' | 'hasPassword' | 'tags' | 'convertValues'>
 
 const state = reactive({
   connections: [] as store.Connection[],
@@ -20,6 +23,9 @@ async function refresh() {
   try {
     state.connections = await ListConnections()
     state.error = ''
+    // Saving a connection can create Tags, and a Tag rename shows up on
+    // every chip, so the two lists are always reloaded together.
+    await refreshTags()
   } catch (e) {
     state.error = String(e)
   } finally {
@@ -29,7 +35,7 @@ async function refresh() {
 
 async function create(connection: ConnectionDraft): Promise<number> {
   try {
-    const id = await CreateConnection({id: 0, hasPassword: false, ...connection} as store.Connection)
+    const id = await CreateConnection(store.Connection.createFrom({id: 0, hasPassword: false, tags: [], ...connection}))
     state.error = ''
     await refresh()
     return id

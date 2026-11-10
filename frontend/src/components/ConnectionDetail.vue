@@ -15,9 +15,10 @@ import ConfirmDialog from './ConfirmDialog.vue'
 import HostKeyDialog from './HostKeyDialog.vue'
 import Button from './ui/Button.vue'
 import StatusDot from './ui/StatusDot.vue'
+import TagChip from './ui/TagChip.vue'
 import {useTunnels} from '../composables/useTunnels'
 import type {ConnectionDraft} from '../composables/useConnections'
-import type {store} from '../../wailsjs/go/models'
+import {store} from '../../wailsjs/go/models'
 
 type Mode = 'view' | 'create' | 'edit'
 
@@ -73,7 +74,12 @@ function handleUpdate(value: ConnectionDraft) {
   // hasPassword is read-only on the backend; sending the current value
   // back keeps the payload a complete Connection without claiming
   // anything the store will act on.
-  emit('update', {id: props.selected.id, hasPassword: props.selected.hasPassword, ...value})
+  emit('update', store.Connection.createFrom({
+    id: props.selected.id,
+    hasPassword: props.selected.hasPassword,
+    tags: props.selected.tags,
+    ...value,
+  }))
 }
 
 function confirmDelete() {
@@ -152,6 +158,12 @@ function dismissHostKey() {
           </button>
         </div>
       </div>
+
+      <ul v-if="selected.tags.length" class="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="Tags">
+        <li v-for="tag in selected.tags" :key="tag.id" class="min-w-0">
+          <TagChip :label="tag.label" :color="tag.color"/>
+        </li>
+      </ul>
 
       <div class="flex items-center gap-2">
         <Button

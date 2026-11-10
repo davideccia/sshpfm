@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import {ref, computed} from 'vue'
+import {ref, computed, watch} from 'vue'
 import {
   PhPlus as Plus,
   PhGearSix as GearSix,
+  PhTag as TagIcon,
   PhWarningCircle as WarningCircle,
   PhArrowSquareOut as ArrowSquareOut,
   PhPower as Power,
@@ -11,14 +12,17 @@ import {
 } from '@phosphor-icons/vue'
 import Button from './ui/Button.vue'
 import StatusDot from './ui/StatusDot.vue'
+import TagChip from './ui/TagChip.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import {useTunnels} from '../composables/useTunnels'
 import type {store} from '../../wailsjs/go/models'
 
 const props = defineProps<{
   connections: store.Connection[]
+  tags: store.Tag[]
   selectedId: number | null
   settingsActive: boolean
+  tagsActive: boolean
   isLoading: boolean
   error: string
 }>()
@@ -29,12 +33,46 @@ const emit = defineEmits<{
   select: [id: number]
   create: []
   settings: []
+  tags: []
   'delete-many': [ids: number[]]
 }>()
 
 function toggleTunnel(id: number) {
   stateOf(id) === 'active' ? stop(id) : start(id)
 }
+
+// The Tag filter: a Connection is visible only when it carries every
+// selected Tag. Held in memory on purpose, so every launch starts from
+// the full list rather than one where connections seem to have vanished.
+const activeTagIds = ref<Set<number>>(new Set())
+
+function toggleTag(id: number) {
+  const next = new Set(activeTagIds.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  activeTagIds.value = next
+}
+
+function clearTagFilter() {
+  activeTagIds.value = new Set()
+}
+
+// A Tag deleted in the Tags view must not keep filtering from beyond the grave.
+watch(() => props.tags, (tags) => {
+  const known = new Set(tags.map(t => t.id))
+  if ([...activeTagIds.value].some(id => !known.has(id))) {
+    activeTagIds.value = new Set([...activeTagIds.value].filter(id => known.has(id)))
+  }
+})
+
+const visibleConnections = computed(() => {
+  if (activeTagIds.value.size === 0) return props.connections
+  return props.connections.filter(c =>
+    [...activeTagIds.value].every(id => c.tags.some(t => t.id === id))
+  )
+})
+
+// The sidebar row has room for two chips; the rest collapse into "+N".
+const ROW_TAGS = 2
 
 const selectionMode = ref(false)
 const selectedIds = ref<Set<number>>(new Set())
@@ -56,14 +94,24 @@ function toggleSelected(id: number) {
   selectedIds.value = next
 }
 
+// Selection only ever covers what is on screen: "All" means all visible,
+// and a connection the filter hides drops out of the selection, so the
+// Delete count never includes something the user cannot see.
+watch(visibleConnections, (visible) => {
+  const ids = new Set(visible.map(c => c.id))
+  if ([...selectedIds.value].some(id => !ids.has(id))) {
+    selectedIds.value = new Set([...selectedIds.value].filter(id => ids.has(id)))
+  }
+})
+
 const allSelected = computed(() =>
-  props.connections.length > 0 && selectedIds.value.size === props.connections.length
+  visibleConnections.value.length > 0 && selectedIds.value.size === visibleConnections.value.length
 )
 
 function toggleSelectAll() {
   selectedIds.value = allSelected.value
     ? new Set()
-    : new Set(props.connections.map(c => c.id))
+    : new Set(visibleConnections.value.map(c => c.id))
 }
 
 function confirmBulkDelete() {
@@ -95,21 +143,40 @@ function confirmBulkDelete() {
     <!-- Filled with the hover grey rather than the canvas the logo card
          sits on, so it reads as a distinct, clickable destination without
          reaching for the accent, which is reserved for primary actions. -->
-    <button
-      type="button"
-      class="flex w-full cursor-pointer items-center justify-center gap-2
-             rounded-2xl bg-hover px-4 py-2.5 text-sm font-semibold text-ink
-             transition-[box-shadow] duration-150 outline-none
-             focus-visible:outline-2 focus-visible:-outline-offset-2
-             focus-visible:outline-accent
-             active:scale-[0.99]"
-      :class="settingsActive ? 'shadow-neu-in' : 'shadow-neu-out hover:shadow-neu-out-sm active:shadow-neu-in'"
-      :aria-current="settingsActive ? 'true' : undefined"
-      @click="emit('settings')"
-    >
-      <GearSix :size="16" weight="bold"/>
-      Settings
-    </button>
+    <!-- Two destinations side by side, sharing one look so neither reads
+         as primary. -->
+    <nav class="grid grid-cols-2 gap-3" aria-label="App sections">
+      <button
+        type="button"
+        class="flex w-full cursor-pointer items-center justify-center gap-2
+               rounded-2xl bg-hover px-4 py-2.5 text-sm font-semibold text-ink
+               transition-[box-shadow] duration-150 outline-none
+               focus-visible:outline-2 focus-visible:-outline-offset-2
+               focus-visible:outline-accent
+               active:scale-[0.99]"
+        :class="settingsActive ? 'shadow-neu-in' : 'shadow-neu-out hover:shadow-neu-out-sm active:shadow-neu-in'"
+        :aria-current="settingsActive ? 'true' : undefined"
+        @click="emit('settings')"
+      >
+        <GearSix :size="16" weight="bold"/>
+        Settings
+      </button>
+      <button
+        type="button"
+        class="flex w-full cursor-pointer items-center justify-center gap-2
+               rounded-2xl bg-hover px-4 py-2.5 text-sm font-semibold text-ink
+               transition-[box-shadow] duration-150 outline-none
+               focus-visible:outline-2 focus-visible:-outline-offset-2
+               focus-visible:outline-accent
+               active:scale-[0.99]"
+        :class="tagsActive ? 'shadow-neu-in' : 'shadow-neu-out hover:shadow-neu-out-sm active:shadow-neu-in'"
+        :aria-current="tagsActive ? 'true' : undefined"
+        @click="emit('tags')"
+      >
+        <TagIcon :size="16" weight="bold"/>
+        Tags
+      </button>
+    </nav>
 
     <div class="flex flex-col gap-2">
       <div class="flex items-center justify-between">
@@ -177,6 +244,47 @@ function confirmBulkDelete() {
       </div>
     </div>
 
+    <!-- p-1 leaves room for the chips' shadows inside the scroll box. -->
+    <div v-if="tags.length > 0" class="flex flex-col gap-1.5">
+      <div class="flex items-center justify-between">
+        <span id="tag-filter-label" class="text-xs font-semibold text-ink-muted">Filter by tag</span>
+        <button
+          v-if="activeTagIds.size > 0"
+          type="button"
+          class="cursor-pointer rounded-md text-xs text-ink-faint underline-offset-2
+                 transition-colors duration-150 outline-none hover:text-ink-muted
+                 hover:underline focus-visible:outline-2
+                 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          @click="clearTagFilter"
+        >
+          Clear
+        </button>
+      </div>
+      <div
+        role="group"
+        aria-labelledby="tag-filter-label"
+        class="-m-1 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto p-1"
+      >
+        <button
+          v-for="tag in tags"
+          :key="tag.id"
+          type="button"
+          class="inline-flex max-w-full min-w-0 cursor-pointer items-center gap-1.5
+                 rounded-lg bg-canvas px-2 py-0.5 text-xs transition-[box-shadow,color]
+                 duration-150 outline-none focus-visible:outline-2
+                 focus-visible:outline-offset-1 focus-visible:outline-accent"
+          :class="activeTagIds.has(tag.id)
+            ? 'text-ink shadow-neu-in-sm'
+            : 'text-ink-muted shadow-neu-out-sm hover:text-ink'"
+          :aria-pressed="activeTagIds.has(tag.id)"
+          @click="toggleTag(tag.id)"
+        >
+          <span class="size-2 shrink-0 rounded-full" :style="{backgroundColor: tag.color}" aria-hidden="true"/>
+          <span class="truncate">{{ tag.label }}</span>
+        </button>
+      </div>
+    </div>
+
     <p
       v-if="error"
       role="alert"
@@ -194,8 +302,13 @@ function confirmBulkDelete() {
       Create one to get started.
     </p>
 
+    <div v-else-if="visibleConnections.length === 0" class="flex flex-col items-start gap-2">
+      <p class="m-0 text-sm leading-relaxed text-ink-muted">No connections with all of these tags.</p>
+      <Button variant="secondary" @click="clearTagFilter">Clear filters</Button>
+    </div>
+
     <ul v-else class="flex list-none flex-col gap-1">
-      <li v-for="c in connections" :key="c.id" class="relative">
+      <li v-for="c in visibleConnections" :key="c.id" class="relative">
         <button
           type="button"
           class="relative w-full cursor-pointer rounded-xl px-3 py-2.5 text-left
@@ -225,6 +338,20 @@ function confirmBulkDelete() {
           </span>
           <span class="mt-0.5 block truncate font-mono text-xs text-ink-muted">
             {{ c.username }}@{{ c.host }}:{{ c.sshPort }}
+          </span>
+          <span v-if="c.tags.length" class="mt-1.5 flex min-w-0 items-center gap-1">
+            <TagChip
+              v-for="tag in c.tags.slice(0, ROW_TAGS)"
+              :key="tag.id"
+              class="min-w-0"
+              :label="tag.label"
+              :color="tag.color"
+            />
+            <span
+              v-if="c.tags.length > ROW_TAGS"
+              class="shrink-0 text-xs text-ink-faint"
+              :title="c.tags.slice(ROW_TAGS).map(t => t.label).join(', ')"
+            >+{{ c.tags.length - ROW_TAGS }}</span>
           </span>
         </button>
 

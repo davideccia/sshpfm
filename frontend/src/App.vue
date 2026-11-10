@@ -4,18 +4,21 @@ import {PhWarningCircle as WarningCircle} from '@phosphor-icons/vue'
 import ConnectionSidebar from './components/ConnectionSidebar.vue'
 import ConnectionDetail from './components/ConnectionDetail.vue'
 import SettingsView from './components/SettingsView.vue'
+import TagsView from './components/TagsView.vue'
 import VaultGate from './components/VaultGate.vue'
 import {useConnections, type ConnectionDraft} from './composables/useConnections'
 import {useTunnels} from './composables/useTunnels'
 import {useVault} from './composables/useVault'
+import {useTags} from './composables/useTags'
 import {StartupError} from '../wailsjs/go/main/App'
 import type {store} from '../wailsjs/go/models'
 
 const {connections, isLoading, error, refresh, create, update, remove} = useConnections()
 const {init: initTunnels, error: tunnelError} = useTunnels()
 const {status: vaultStatus, refresh: refreshVault} = useVault()
+const {tags, error: tagsError} = useTags()
 
-type Mode = 'view' | 'create' | 'edit' | 'settings'
+type Mode = 'view' | 'create' | 'edit' | 'settings' | 'tags'
 
 const mode = ref<Mode>('view')
 const selectedId = ref<number | null>(null)
@@ -25,9 +28,10 @@ const selected = computed<store.Connection | null>(() =>
   connections.value.find(c => c.id === selectedId.value) ?? null
 )
 
-// The sidebar shows one message; tunnel failures are the more urgent of
-// the two, so they win.
-const banner = computed(() => tunnelError.value || error.value)
+// The sidebar shows one message, most urgent first: a tunnel failure,
+// then a failed connection load, then a failed Tag reload. The last would
+// otherwise leave the filter and the form offering a stale Tag list.
+const banner = computed(() => tunnelError.value || error.value || tagsError.value)
 
 function selectConnection(id: number) {
   selectedId.value = id
@@ -41,6 +45,10 @@ function startCreate() {
 
 function openSettings() {
   mode.value = 'settings'
+}
+
+function openTags() {
+  mode.value = 'tags'
 }
 
 function startEdit() {
@@ -140,18 +148,26 @@ onMounted(async () => {
     <div v-else-if="vaultStatus === 'unlocked'" class="flex min-h-0 flex-1">
       <ConnectionSidebar
         :connections="connections"
-        :selected-id="mode === 'settings' ? null : selectedId"
+        :tags="tags"
+        :selected-id="mode === 'settings' || mode === 'tags' ? null : selectedId"
         :settings-active="mode === 'settings'"
+        :tags-active="mode === 'tags'"
         :is-loading="isLoading"
         :error="banner"
         @select="selectConnection"
         @create="startCreate"
         @settings="openSettings"
+        @tags="openTags"
         @delete-many="handleDeleteMany"
       />
       <SettingsView
         v-if="mode === 'settings'"
         @imported="refresh"
+        @close="cancelForm"
+      />
+      <TagsView
+        v-else-if="mode === 'tags'"
+        @tags-changed="refresh"
         @close="cancelForm"
       />
       <ConnectionDetail
