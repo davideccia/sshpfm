@@ -10,12 +10,20 @@ export function CreateConnection(arg1) {
   return window['go']['main']['App']['CreateConnection'](arg1);
 }
 
+export function CreateTag(arg1) {
+  return window['go']['main']['App']['CreateTag'](arg1);
+}
+
 export function CreateVault(arg1) {
   return window['go']['main']['App']['CreateVault'](arg1);
 }
 
 export function DeleteConnection(arg1) {
   return window['go']['main']['App']['DeleteConnection'](arg1);
+}
+
+export function DeleteTag(arg1) {
+  return window['go']['main']['App']['DeleteTag'](arg1);
 }
 
 export function ExportDatabase() {
@@ -28,6 +36,10 @@ export function ImportDatabase() {
 
 export function ListConnections() {
   return window['go']['main']['App']['ListConnections']();
+}
+
+export function ListTags() {
+  return window['go']['main']['App']['ListTags']();
 }
 
 export function OpenInBrowser(arg1) {
@@ -64,6 +76,10 @@ export function UnlockVault(arg1) {
 
 export function UpdateConnection(arg1) {
   return window['go']['main']['App']['UpdateConnection'](arg1);
+}
+
+export function UpdateTag(arg1) {
+  return window['go']['main']['App']['UpdateTag'](arg1);
 }
 
 export function VaultState() {

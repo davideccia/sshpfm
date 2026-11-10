@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -53,7 +54,8 @@ func TestCreateGetRoundTrip(t *testing.T) {
 		t.Fatalf("Get: %v", err)
 	}
 	want.ID = id
-	if got != want {
+	want.Tags = []Tag{}
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Get = %+v, want %+v", got, want)
 	}
 }
@@ -165,7 +167,8 @@ func TestUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if got != c {
+	c.Tags = []Tag{}
+	if !reflect.DeepEqual(got, c) {
 		t.Errorf("Get = %+v, want %+v", got, c)
 	}
 }

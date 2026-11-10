@@ -7,15 +7,21 @@ export function ConnectionLogs(arg1:number):Promise<Array<tunnel.LogLine>>;
 
 export function CreateConnection(arg1:store.Connection):Promise<number>;
 
+export function CreateTag(arg1:store.Tag):Promise<number>;
+
 export function CreateVault(arg1:string):Promise<void>;
 
 export function DeleteConnection(arg1:number):Promise<void>;
+
+export function DeleteTag(arg1:number):Promise<void>;
 
 export function ExportDatabase():Promise<void>;
 
 export function ImportDatabase():Promise<void>;
 
 export function ListConnections():Promise<Array<store.Connection>>;
+
+export function ListTags():Promise<Array<store.Tag>>;
 
 export function OpenInBrowser(arg1:number):Promise<void>;
 
@@ -34,5 +40,7 @@ export function TunnelStatuses():Promise<Array<tunnel.Status>>;
 export function UnlockVault(arg1:string):Promise<void>;
 
 export function UpdateConnection(arg1:store.Connection):Promise<void>;
+
+export function UpdateTag(arg1:store.Tag):Promise<void>;
 
 export function VaultState():Promise<string>;
