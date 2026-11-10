@@ -2,7 +2,11 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -508,6 +512,162 @@ func TestUpdateTagErrors(t *testing.T) {
 		t.Fatalf("Get after rename: %v", err)
 	}
 	if want := []string{"renamed"}; !equalStrings(tagLabels(got.Tags), want) {
+		t.Errorf("tags = %v, want %v", tagLabels(got.Tags), want)
+	}
+}
+
+// versionBeforeTags is the schema the last release without Tags shipped:
+// the connections table, its password column and the vault. Pinned rather
+// than derived from len(migrations), so a later step cannot shift it.
+const versionBeforeTags = 3
+
+// openAtVersion writes a database that stops at migration step version,
+// as an older release would have left it, seeds it through seed, and then
+// opens it with the current Open so the remaining steps run.
+func openAtVersion(t *testing.T, version int, seed func(*sql.DB)) *Store {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "with space")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	path := filepath.Join(dir, "old.db")
+
+	old, err := sql.Open("sqlite", dsn(path))
+	if err != nil {
+		t.Fatalf("open old database: %v", err)
+	}
+	for i := range version {
+		if _, err := old.Exec(migrations[i]); err != nil {
+			t.Fatalf("old migration step %d: %v", i, err)
+		}
+	}
+	if _, err := old.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, version)); err != nil {
+		t.Fatalf("set old user_version: %v", err)
+	}
+	seed(old)
+	if err := old.Close(); err != nil {
+		t.Fatalf("close old database: %v", err)
+	}
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+	return s
+}
+
+func TestMigrationAddsTagsToExistingDatabase(t *testing.T) {
+	ctx := context.Background()
+	s := openAtVersion(t, versionBeforeTags, func(db *sql.DB) {
+		if _, err := db.Exec(
+			`INSERT INTO connections (label, host, ssh_port, username, remote_bind_port, local_port) VALUES ('old', 'legacy.example.com', 22, 'deploy', 5432, 15432)`,
+		); err != nil {
+			t.Fatalf("seed connection: %v", err)
+		}
+	})
+
+	var version int
+	if err := s.db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		t.Fatalf("read user_version: %v", err)
+	}
+	if version != len(migrations) {
+		t.Errorf("user_version = %d, want %d", version, len(migrations))
+	}
+
+	// The connection written before Tags existed survives with none.
+	conns, err := s.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(conns) != 1 || conns[0].Label != "old" {
+		t.Fatalf("List = %+v, want the one pre-existing connection", conns)
+	}
+	old := conns[0]
+	if old.Tags == nil || len(old.Tags) != 0 {
+		t.Errorf("Tags = %#v, want an empty, non-nil slice", old.Tags)
+	}
+
+	// Tags work on the upgraded database, including on the old row.
+	old.NewTags = []Tag{{Label: "legacy", Color: "#000000"}, {Label: "kept", Color: "#000000"}}
+	if err := s.Update(ctx, old); err != nil {
+		t.Fatalf("Update after migration: %v", err)
+	}
+	got, err := s.Get(ctx, old.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if want := []string{"kept", "legacy"}; !equalStrings(tagLabels(got.Tags), want) {
+		t.Errorf("tags = %v, want %v", tagLabels(got.Tags), want)
+	}
+
+	// The label stays unique case-insensitively at the schema level, not
+	// only through the store's own pre-check.
+	if _, err := s.db.Exec(`INSERT INTO tags (label, color) VALUES ('LEGACY', '#ffffff')`); err == nil {
+		t.Error("raw insert of a label differing only by case = nil error, want UNIQUE violation")
+	}
+
+	// Both cascades fire on the upgraded database: deleting a Tag drops
+	// only its link, deleting the Connection drops the rest.
+	var legacyID int64
+	for _, tag := range got.Tags {
+		if tag.Label == "legacy" {
+			legacyID = tag.ID
+		}
+	}
+	if err := s.DeleteTag(ctx, legacyID); err != nil {
+		t.Fatalf("DeleteTag: %v", err)
+	}
+	if err := s.Delete(ctx, old.ID); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	var links int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM connection_tags`).Scan(&links); err != nil {
+		t.Fatalf("count links: %v", err)
+	}
+	if links != 0 {
+		t.Errorf("connection_tags has %d rows, want 0 after both cascades", links)
+	}
+	tags, err := s.ListTags(ctx)
+	if err != nil {
+		t.Fatalf("ListTags: %v", err)
+	}
+	if want := []string{"kept"}; !equalStrings(tagLabels(tags), want) {
+		t.Errorf("ListTags = %v, want %v: deleting a Connection must not delete its Tags", tagLabels(tags), want)
+	}
+}
+
+// Reopening a database that already has the Tags step must not run it
+// again: unlike the first step, it has no IF NOT EXISTS to fall back on.
+func TestMigrationDoesNotRerunTagsStep(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.db")
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	c := sample()
+	c.NewTags = []Tag{{Label: "survives", Color: "#000000"}}
+	id, err := s.Create(ctx, c)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	s, err = Open(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	got, err := s.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get after reopen: %v", err)
+	}
+	if want := []string{"survives"}; !equalStrings(tagLabels(got.Tags), want) {
 		t.Errorf("tags = %v, want %v", tagLabels(got.Tags), want)
 	}
 }
