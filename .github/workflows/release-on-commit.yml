@@ -1,0 +1,55 @@
+name: Release on commit
+
+# Un push su main il cui head commit è "chore(release): X version" crea il
+# tag X e la release X su quel commit (stesso formato delle release manuali:
+# tag = titolo = X).
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    if: startsWith(github.event.head_commit.message, 'chore(release):')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tag + release
+      actions: write # avvio di release.yml
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      # Il messaggio è input dell'autore del commit: passa da env, mai
+      # interpolato direttamente nello script.
+      COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+      COMMIT_SHA: ${{ github.event.head_commit.id }}
+    steps:
+      - name: Resolve version
+        run: |
+          SUBJECT=$(printf '%s\n' "$COMMIT_MESSAGE" | head -n1)
+          VERSION=$(printf '%s\n' "$SUBJECT" | sed -nE 's/^chore\(release\): ([0-9A-Za-z._-]+) version$/\1/p')
+          if [ -z "$VERSION" ]; then
+            echo "::notice::'$SUBJECT' non è nel formato 'chore(release): X version', nessuna release."
+            exit 0
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Create release
+        if: env.VERSION != ''
+        run: |
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "::warning::La release $VERSION esiste già, salto."
+            echo "SKIP_PUBLISH=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          gh release create "$VERSION" \
+            --target "$COMMIT_SHA" \
+            --title "$VERSION" \
+            --generate-notes \
+            --latest
+
+      # Una release creata con GITHUB_TOKEN NON genera l'evento `release`
+      # per altri workflow (anti-ricorsione di GitHub), quindi release.yml
+      # non partirebbe da solo. workflow_dispatch invece è ammesso: lo si
+      # avvia sul tag, così le build allegano i file alla release X.
+      - name: Trigger build
+        if: env.VERSION != '' && env.SKIP_PUBLISH != '1'
+        run: gh workflow run release.yml --ref "$VERSION"
